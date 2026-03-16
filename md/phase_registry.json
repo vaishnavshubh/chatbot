@@ -1,48 +1,205 @@
 {
   "phases": [
     {
+      "id": 0,
       "name": "phase0_consent",
-      "goal": "confirm consent and output preference",
+      "display_name": "Consent & Setup",
+      "goal": "Explain the chatbot's educational scope, confirm user consent, and establish output preferences.",
       "required_fields": [
         "consent_acknowledged",
         "output_preference"
-      ]
+      ],
+      "field_paths": {
+        "consent_acknowledged": "consent_acknowledged",
+        "output_preference": "output_preference"
+      },
+      "entry_conditions": [],
+      "exit_conditions": [
+        "consent_acknowledged == true",
+        "output_preference is not null"
+      ],
+      "skills": {
+        "analyzer": "skills/phase0_consent/analyzer.md",
+        "speaker": "skills/phase0_consent/speaker.md"
+      },
+      "max_turns": 5,
+      "fallback_message": "Before we continue, I need to confirm that you understand this chatbot provides educational guidance only — not financial advice. Is that okay?"
     },
     {
+      "id": 1,
       "name": "phase1_profile",
-      "goal": "collect baseline employment information",
+      "display_name": "Baseline Profile",
+      "goal": "Understand the user's employment situation and financial context.",
       "required_fields": [
-        "life_stage",
-        "pay_type",
-        "pay_frequency"
-      ]
+        "profile.life_stage",
+        "profile.pay_type",
+        "profile.pay_frequency",
+        "profile.income_range"
+      ],
+      "field_paths": {
+        "life_stage": "profile.life_stage",
+        "pay_type": "profile.pay_type",
+        "pay_frequency": "profile.pay_frequency",
+        "income_range": "profile.income_range"
+      },
+      "entry_conditions": [
+        "consent_acknowledged == true"
+      ],
+      "exit_conditions": [
+        "profile.life_stage is not null",
+        "profile.pay_type is not null",
+        "profile.pay_frequency is not null",
+        "profile.income_range is not null"
+      ],
+      "skills": {
+        "analyzer": "skills/phase1_profile/analyzer.md",
+        "speaker": "skills/phase1_profile/speaker.md"
+      },
+      "max_turns": 8,
+      "fallback_message": "To personalize your learning plan, I need to know a bit about your work situation. Could you tell me about your current employment?"
     },
     {
+      "id": 2,
       "name": "phase2_goal_selection",
-      "goal": "select financial topic",
+      "display_name": "Goal Selection",
+      "goal": "Identify the user's primary financial topic and planning time horizon.",
       "required_fields": [
-        "primary_goal",
-        "time_horizon"
-      ]
+        "goal.primary_goal",
+        "goal.time_horizon"
+      ],
+      "field_paths": {
+        "primary_goal": "goal.primary_goal",
+        "time_horizon": "goal.time_horizon"
+      },
+      "entry_conditions": [
+        "All Phase 1 required fields are populated"
+      ],
+      "exit_conditions": [
+        "goal.primary_goal is not null",
+        "goal.time_horizon is not null"
+      ],
+      "allowed_goals": [
+        "financial_foundations",
+        "budget_cashflow",
+        "credit_management",
+        "workplace_401k",
+        "student_loans",
+        "borrowing_basics"
+      ],
+      "skills": {
+        "analyzer": "skills/phase2_goal_selection/analyzer.md",
+        "speaker": "skills/phase2_goal_selection/speaker.md"
+      },
+      "max_turns": 6,
+      "fallback_message": "Which financial topic would you like to focus on today? I can help with budgeting, credit, 401(k), student loans, and more."
     },
     {
+      "id": 3,
       "name": "phase3_evidence_intake",
-      "goal": "collect financial numbers",
-      "required_fields": []
+      "display_name": "Evidence Intake",
+      "goal": "Collect financial numbers, documents, or qualitative context relevant to the selected goal.",
+      "required_fields_by_goal": {
+        "financial_foundations": [],
+        "budget_cashflow": [
+          "budget.fixed_expenses",
+          "budget.variable_expenses"
+        ],
+        "credit_management": [
+          "credit.apr",
+          "credit.balance",
+          "credit.minimum_payment"
+        ],
+        "workplace_401k": [
+          "retirement.employer_match",
+          "retirement.contribution_rate"
+        ],
+        "student_loans": [
+          "loan.principal",
+          "loan.interest_rate",
+          "loan.payment_amount"
+        ],
+        "borrowing_basics": []
+      },
+      "optional_fields_by_goal": {
+        "credit_management": [
+          "credit.due_date"
+        ]
+      },
+      "entry_conditions": [
+        "goal.primary_goal is not null"
+      ],
+      "exit_conditions": [
+        "All required fields for the selected goal are populated",
+        "OR user explicitly opts to skip evidence and proceed with general guidance"
+      ],
+      "skip_allowed": true,
+      "skip_message": "No problem — I can still provide a helpful educational plan with general guidance. Let's continue.",
+      "skills": {
+        "analyzer": "skills/phase3_evidence_intake/analyzer.md",
+        "speaker": "skills/phase3_evidence_intake/speaker.md"
+      },
+      "max_turns": 12,
+      "fallback_message": "To make your plan more relevant, it helps to have a few numbers. You can share them manually or upload a document."
     },
     {
+      "id": 4,
       "name": "phase4_plan_generation",
-      "goal": "generate financial plan",
+      "display_name": "Plan Generation",
+      "goal": "Generate a structured educational financial plan based on all collected state.",
       "required_fields": [
         "plan_generated"
-      ]
+      ],
+      "field_paths": {
+        "plan_generated": "plan_generated"
+      },
+      "entry_conditions": [
+        "Phase 3 exit conditions are met"
+      ],
+      "exit_conditions": [
+        "plan_generated == true"
+      ],
+      "plan_structure": [
+        "Situation Summary",
+        "Key Concepts & Definitions",
+        "Step-by-Step Checklist",
+        "Risks & Common Pitfalls",
+        "30-Day Action Plan"
+      ],
+      "artifact_triggers": {
+        "pdf": "output_preference == 'pdf'",
+        "csv": "goal.primary_goal == 'budget_cashflow'",
+        "chart": "output_preference == 'charts' AND numeric evidence exists"
+      },
+      "skills": {
+        "analyzer": "skills/phase4_plan_generation/analyzer.md",
+        "speaker": "skills/phase4_plan_generation/speaker.md"
+      },
+      "max_turns": 3,
+      "fallback_message": "Let me put together your personalized education plan based on everything you've shared."
     },
     {
+      "id": 5,
       "name": "phase5_followup",
-      "goal": "encourage execution",
+      "display_name": "Follow-up",
+      "goal": "Encourage the user to commit to a concrete, time-bound next action.",
       "required_fields": [
         "selected_next_action"
-      ]
+      ],
+      "field_paths": {
+        "selected_next_action": "selected_next_action"
+      },
+      "entry_conditions": [
+        "plan_generated == true"
+      ],
+      "exit_conditions": [
+        "selected_next_action is not null"
+      ],
+      "skills": {
+        "analyzer": "skills/phase5_followup/analyzer.md",
+        "speaker": "skills/phase5_followup/speaker.md"
+      },
+      "max_turns": 5,
+      "fallback_message": "What is one specific financial action you could take in the next 48 hours?"
     }
   ]
 }

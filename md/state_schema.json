@@ -1,36 +1,233 @@
 {
-  "consent_acknowledged": false,
-  "output_preference": null,
-  "profile": {
-    "life_stage": null,
-    "pay_type": null,
-    "pay_frequency": null,
-    "income_range": null
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "FinancialLiteracyChatbotState",
+  "description": "Complete conversation state for the financial literacy chatbot. The orchestrator owns this object and updates it after every analyzer pass.",
+  "type": "object",
+  "properties": {
+    "session_id": {
+      "type": ["string", "null"],
+      "description": "Unique identifier for this conversation session."
+    },
+    "current_phase": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 5,
+      "default": 0,
+      "description": "The active conversation phase (0–5)."
+    },
+    "consent_acknowledged": {
+      "type": "boolean",
+      "default": false,
+      "description": "True when the user confirms they understand this chatbot provides educational guidance only."
+    },
+    "output_preference": {
+      "type": ["string", "null"],
+      "enum": ["chat", "pdf", "csv", "charts", null],
+      "default": null,
+      "description": "The user's preferred output format."
+    },
+    "profile": {
+      "type": "object",
+      "description": "Baseline employment and financial context collected in Phase 1.",
+      "properties": {
+        "life_stage": {
+          "type": ["string", "null"],
+          "enum": ["student", "new_graduate", "early_career", "career_changer", null],
+          "default": null,
+          "description": "The user's current career stage."
+        },
+        "pay_type": {
+          "type": ["string", "null"],
+          "enum": ["salaried", "hourly", "freelance", "stipend", null],
+          "default": null,
+          "description": "How the user is compensated."
+        },
+        "pay_frequency": {
+          "type": ["string", "null"],
+          "enum": ["weekly", "biweekly", "semi_monthly", "monthly", null],
+          "default": null,
+          "description": "How often the user receives a paycheck."
+        },
+        "income_range": {
+          "type": ["string", "null"],
+          "enum": [
+            "under_25k",
+            "25k_50k",
+            "50k_75k",
+            "75k_100k",
+            "over_100k",
+            null
+          ],
+          "default": null,
+          "description": "Approximate annual gross income bracket."
+        }
+      },
+      "additionalProperties": false
+    },
+    "goal": {
+      "type": "object",
+      "description": "The user's selected financial topic and planning horizon.",
+      "properties": {
+        "primary_goal": {
+          "type": ["string", "null"],
+          "enum": [
+            "financial_foundations",
+            "budget_cashflow",
+            "credit_management",
+            "workplace_401k",
+            "student_loans",
+            "borrowing_basics",
+            null
+          ],
+          "default": null,
+          "description": "The financial topic the user wants to explore."
+        },
+        "time_horizon": {
+          "type": ["string", "null"],
+          "enum": ["short_term", "medium_term", "long_term", null],
+          "default": null,
+          "description": "short_term = < 6 months, medium_term = 6–24 months, long_term = 2+ years."
+        }
+      },
+      "additionalProperties": false
+    },
+    "budget": {
+      "type": "object",
+      "description": "Budget and cash-flow evidence. Populated when primary_goal is budget_cashflow.",
+      "properties": {
+        "fixed_expenses": {
+          "type": ["number", "null"],
+          "minimum": 0,
+          "default": null,
+          "description": "Total monthly fixed expenses (rent, utilities, subscriptions, insurance) in USD."
+        },
+        "variable_expenses": {
+          "type": ["number", "null"],
+          "minimum": 0,
+          "default": null,
+          "description": "Total monthly variable expenses (food, entertainment, transport) in USD."
+        }
+      },
+      "additionalProperties": false
+    },
+    "credit": {
+      "type": "object",
+      "description": "Credit management evidence. Populated when primary_goal is credit_management.",
+      "properties": {
+        "apr": {
+          "type": ["number", "null"],
+          "minimum": 0,
+          "maximum": 100,
+          "default": null,
+          "description": "Annual percentage rate on the user's primary credit card or debt, as a percentage (e.g., 22.99)."
+        },
+        "balance": {
+          "type": ["number", "null"],
+          "minimum": 0,
+          "default": null,
+          "description": "Current outstanding credit card or revolving debt balance in USD."
+        },
+        "minimum_payment": {
+          "type": ["number", "null"],
+          "minimum": 0,
+          "default": null,
+          "description": "Minimum monthly payment in USD."
+        },
+        "due_date": {
+          "type": ["string", "null"],
+          "default": null,
+          "description": "Payment due date as a day of the month (e.g., '15') or a full date string."
+        }
+      },
+      "additionalProperties": false
+    },
+    "retirement": {
+      "type": "object",
+      "description": "Workplace 401(k) evidence. Populated when primary_goal is workplace_401k.",
+      "properties": {
+        "employer_match": {
+          "type": ["string", "null"],
+          "default": null,
+          "description": "Employer match formula or percentage (e.g., '100% up to 6%', '50% up to 4%')."
+        },
+        "contribution_rate": {
+          "type": ["number", "null"],
+          "minimum": 0,
+          "maximum": 100,
+          "default": null,
+          "description": "Current or planned employee contribution rate as a percentage of salary."
+        }
+      },
+      "additionalProperties": false
+    },
+    "loan": {
+      "type": "object",
+      "description": "Student loan evidence. Populated when primary_goal is student_loans.",
+      "properties": {
+        "principal": {
+          "type": ["number", "null"],
+          "minimum": 0,
+          "default": null,
+          "description": "Outstanding loan principal in USD."
+        },
+        "interest_rate": {
+          "type": ["number", "null"],
+          "minimum": 0,
+          "maximum": 100,
+          "default": null,
+          "description": "Annual interest rate as a percentage."
+        },
+        "payment_amount": {
+          "type": ["number", "null"],
+          "minimum": 0,
+          "default": null,
+          "description": "Current monthly payment amount in USD."
+        }
+      },
+      "additionalProperties": false
+    },
+    "plan_generated": {
+      "type": "boolean",
+      "default": false,
+      "description": "Set to true by the orchestrator after Phase 4 plan generation completes."
+    },
+    "selected_next_action": {
+      "type": ["string", "null"],
+      "default": null,
+      "description": "The concrete next action the user commits to during Phase 5."
+    },
+    "artifacts": {
+      "type": "object",
+      "description": "Tracks which artifacts have been generated.",
+      "properties": {
+        "pdf_generated": {
+          "type": "boolean",
+          "default": false
+        },
+        "csv_generated": {
+          "type": "boolean",
+          "default": false
+        },
+        "chart_generated": {
+          "type": "boolean",
+          "default": false
+        }
+      },
+      "additionalProperties": false
+    }
   },
-  "goal": {
-    "primary_goal": null,
-    "time_horizon": null
-  },
-  "budget": {
-    "fixed_expenses": null,
-    "variable_expenses": null
-  },
-  "credit": {
-    "apr": null,
-    "balance": null,
-    "minimum_payment": null,
-    "due_date": null
-  },
-  "retirement": {
-    "employer_match": null,
-    "contribution_rate": null
-  },
-  "loan": {
-    "principal": null,
-    "interest_rate": null,
-    "payment_amount": null,
-    "term": null
-  },
-  "plan_generated": false,
-  "selected_next_action": null
+  "required": [
+    "current_phase",
+    "consent_acknowledged",
+    "output_preference",
+    "profile",
+    "goal",
+    "budget",
+    "credit",
+    "retirement",
+    "loan",
+    "plan_generated",
+    "selected_next_action"
+  ],
+  "additionalProperties": false
 }
