@@ -5,9 +5,12 @@ speaker skill prompt to the LLM and returns a conversational response.
 
 import json
 import logging
+import os
 from openai import OpenAI
 
 log = logging.getLogger(__name__)
+
+MODEL = os.getenv("LLM_MODEL", "llama4:latest")
 
 
 class Speaker:
@@ -41,7 +44,7 @@ class Speaker:
 
         try:
             resp = self.client.chat.completions.create(
-                model="gpt-4o-mini",
+                model=MODEL,
                 messages=messages,
                 temperature=0.7,
                 max_tokens=max_tokens,

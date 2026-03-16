@@ -71,7 +71,8 @@ def _build_openai_client() -> OpenAI:
             "`OPENAI_API_KEY=sk-...`"
         )
         st.stop()
-    return OpenAI(api_key=api_key)
+    base_url = os.getenv("OPENAI_BASE_URL", None)
+    return OpenAI(api_key=api_key, base_url=base_url) if base_url else OpenAI(api_key=api_key)
 
 
 @st.cache_resource

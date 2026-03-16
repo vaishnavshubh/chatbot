@@ -5,11 +5,15 @@ to the LLM and parses structured JSON facts from the response.
 
 import json
 import logging
+import os
+import re
 from openai import OpenAI
 
 from state import ChatbotState
 
 log = logging.getLogger(__name__)
+
+MODEL = os.getenv("LLM_MODEL", "llama4:latest")
 
 
 def _flatten(data: dict, prefix: str = "") -> dict:
@@ -23,6 +27,36 @@ def _flatten(data: dict, prefix: str = "") -> dict:
         else:
             flat[full_key] = value
     return flat
+
+
+def _extract_json(text: str) -> dict:
+    """Pull the first JSON object from LLM output, even if surrounded by text."""
+    # Try parsing the whole response first
+    text = text.strip()
+    try:
+        obj = json.loads(text)
+        if isinstance(obj, dict):
+            return obj
+    except json.JSONDecodeError:
+        pass
+
+    # Look for JSON inside ```json ... ``` fences
+    fence_match = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", text, re.DOTALL)
+    if fence_match:
+        try:
+            return json.loads(fence_match.group(1))
+        except json.JSONDecodeError:
+            pass
+
+    # Look for any { ... } block
+    brace_match = re.search(r"\{[^{}]*\}", text, re.DOTALL)
+    if brace_match:
+        try:
+            return json.loads(brace_match.group(0))
+        except json.JSONDecodeError:
+            pass
+
+    return {}
 
 
 class Analyzer:
@@ -39,8 +73,7 @@ class Analyzer:
 
         try:
             resp = self.client.chat.completions.create(
-                model="gpt-4o-mini",
-                response_format={"type": "json_object"},
+                model=MODEL,
                 messages=[
                     {"role": "system", "content": skill_prompt},
                     {
@@ -48,9 +81,11 @@ class Analyzer:
                         "content": (
                             "Current conversation state:\n"
                             f"{state_summary}\n\n"
-                            "Return ONLY a flat JSON object with extracted fields. "
+                            "IMPORTANT: You MUST respond with ONLY a valid JSON object. "
+                            "No markdown, no explanation, no extra text. "
                             "Use dotted keys for nested fields (e.g. \"budget.fixed_expenses\"). "
-                            "Omit fields you cannot confidently extract."
+                            "Omit fields you cannot confidently extract. "
+                            "Example: {\"consent_acknowledged\": true, \"output_preference\": \"chat\"}"
                         ),
                     },
                     {"role": "user", "content": user_message},
@@ -58,9 +93,9 @@ class Analyzer:
                 temperature=0.1,
                 max_tokens=500,
             )
-            raw = json.loads(resp.choices[0].message.content)
-            if not isinstance(raw, dict):
-                return {}
+            raw_text = resp.choices[0].message.content
+            log.info("Analyzer raw response: %s", raw_text)
+            raw = _extract_json(raw_text)
             return _flatten(raw)
 
         except Exception as exc:
