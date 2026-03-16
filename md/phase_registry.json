@@ -1,0 +1,48 @@
+{
+  "phases": [
+    {
+      "name": "phase0_consent",
+      "goal": "confirm consent and output preference",
+      "required_fields": [
+        "consent_acknowledged",
+        "output_preference"
+      ]
+    },
+    {
+      "name": "phase1_profile",
+      "goal": "collect baseline employment information",
+      "required_fields": [
+        "life_stage",
+        "pay_type",
+        "pay_frequency"
+      ]
+    },
+    {
+      "name": "phase2_goal_selection",
+      "goal": "select financial topic",
+      "required_fields": [
+        "primary_goal",
+        "time_horizon"
+      ]
+    },
+    {
+      "name": "phase3_evidence_intake",
+      "goal": "collect financial numbers",
+      "required_fields": []
+    },
+    {
+      "name": "phase4_plan_generation",
+      "goal": "generate financial plan",
+      "required_fields": [
+        "plan_generated"
+      ]
+    },
+    {
+      "name": "phase5_followup",
+      "goal": "encourage execution",
+      "required_fields": [
+        "selected_next_action"
+      ]
+    }
+  ]
+}
