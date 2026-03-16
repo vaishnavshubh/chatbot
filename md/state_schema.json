@@ -1,0 +1,36 @@
+{
+  "consent_acknowledged": false,
+  "output_preference": null,
+  "profile": {
+    "life_stage": null,
+    "pay_type": null,
+    "pay_frequency": null,
+    "income_range": null
+  },
+  "goal": {
+    "primary_goal": null,
+    "time_horizon": null
+  },
+  "budget": {
+    "fixed_expenses": null,
+    "variable_expenses": null
+  },
+  "credit": {
+    "apr": null,
+    "balance": null,
+    "minimum_payment": null,
+    "due_date": null
+  },
+  "retirement": {
+    "employer_match": null,
+    "contribution_rate": null
+  },
+  "loan": {
+    "principal": null,
+    "interest_rate": null,
+    "payment_amount": null,
+    "term": null
+  },
+  "plan_generated": false,
+  "selected_next_action": null
+}
