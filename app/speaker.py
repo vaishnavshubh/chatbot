@@ -23,6 +23,7 @@ class Speaker:
         instruction: dict,
         history: list[dict] | None = None,
         max_tokens: int = 2000,
+        rag_context: str | None = None,
     ) -> str:
         messages: list[dict] = [
             {"role": "system", "content": skill_prompt},
@@ -34,6 +35,9 @@ class Speaker:
                 ),
             },
         ]
+
+        if rag_context and rag_context.strip():
+            messages.append({"role": "system", "content": rag_context.strip()})
 
         if history:
             for msg in history[-10:]:

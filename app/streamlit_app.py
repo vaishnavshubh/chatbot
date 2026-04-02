@@ -9,6 +9,7 @@ import os
 import sys
 import uuid
 import logging
+import re
 from pathlib import Path
 
 # Ensure sibling modules are importable when Streamlit runs this file directly.
@@ -52,6 +53,36 @@ GOAL_DISPLAY = {
     "borrowing_basics": "Borrowing Basics",
 }
 
+_MD_PLAN_HINTS = (
+    r"(^|\n)##\s+|(^|\n)###\s+|(^|\n)- \[ \]\s+|(^|\n)\*\*Your Situation\*\*"
+)
+
+
+def _looks_like_plan_markdown(text: str) -> bool:
+    """Heuristic: keep markdown rendering for Phase 4 plan-like responses."""
+    return bool(re.search(_MD_PLAN_HINTS, text))
+
+
+def _escape_markdown(text: str) -> str:
+    """Escape markdown special chars for clean plain-text rendering."""
+    # Escape backslashes first
+    text = text.replace("\\", "\\\\")
+    for ch in ["*", "_", "`"]:
+        text = text.replace(ch, f"\\{ch}")
+    return text
+
+
+def _render_message(role: str, content: str) -> None:
+    """
+    Render a message. For assistant non-plan messages, avoid markdown emphasis artifacts
+    by escaping markdown characters.
+    """
+    if role == "assistant" and not _looks_like_plan_markdown(content):
+        st.markdown(_escape_markdown(content))
+    else:
+        st.markdown(content)
+
+
 # ── Page config ─────────────────────────────────────────────────────────
 st.set_page_config(
     page_title="Financial Literacy Guide",
@@ -85,6 +116,17 @@ def _build_skill_loader() -> SkillLoader:
     return SkillLoader(MD_DIR)
 
 
+@st.cache_resource
+def _build_rag_retriever():
+    """Keyword RAG over data/rag_index/chunks.jsonl (see Rag_implementation.md)."""
+    if os.getenv("RAG_ENABLED", "1").lower() not in ("1", "true", "yes"):
+        return None
+    from rag.retrieval import RAGRetriever
+
+    path = PROJECT_ROOT / "data" / "rag_index" / "chunks.jsonl"
+    return RAGRetriever(path)
+
+
 def _build_orchestrator() -> Orchestrator:
     client = _build_openai_client()
     return Orchestrator(
@@ -92,6 +134,7 @@ def _build_orchestrator() -> Orchestrator:
         analyzer=Analyzer(client),
         speaker=Speaker(client),
         skill_loader=_build_skill_loader(),
+        rag_retriever=_build_rag_retriever(),
     )
 
 
@@ -147,6 +190,17 @@ def _render_sidebar():
     if state.output_preference:
         st.sidebar.markdown(f"**Output:** {state.output_preference.upper()}")
 
+    if os.getenv("RAG_ENABLED", "1").lower() not in ("1", "true", "yes"):
+        st.sidebar.caption("RAG: disabled (`RAG_ENABLED` is off)")
+    else:
+        rr = _build_rag_retriever()
+        if rr is not None and getattr(rr, "enabled", False):
+            st.sidebar.caption("RAG: on (Phase 4 plan uses curated excerpts)")
+        else:
+            st.sidebar.caption(
+                "RAG: index missing — run `python app/rag/ingest.py` from project root"
+            )
+
     # PDF download
     if st.session_state.plan_text and state.output_preference == "pdf":
         try:
@@ -191,13 +245,13 @@ def main():
     # Render chat history
     for msg in st.session_state.messages:
         with st.chat_message(msg["role"]):
-            st.markdown(msg["content"])
+            _render_message(msg["role"], msg["content"])
 
     # Handle new user input
     if user_input := st.chat_input("Type your message..."):
         # Display user message immediately
         with st.chat_message("user"):
-            st.markdown(user_input)
+            _render_message("user", user_input)
         st.session_state.messages.append({"role": "user", "content": user_input})
 
         # Process through the orchestrator
@@ -208,7 +262,7 @@ def main():
                     st.session_state.state,
                     st.session_state.messages,
                 )
-            st.markdown(response)
+            _render_message("assistant", response)
 
         # Update session state
         st.session_state.state = new_state

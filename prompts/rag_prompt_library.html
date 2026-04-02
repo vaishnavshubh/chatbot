@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>RAG & Content — Prompt Library | Financial Literacy Chatbot</title>
+  <style>
+    :root {
+      --bg: #0f1419;
+      --surface: #1a2332;
+      --border: #2d3a4d;
+      --text: #e8ecf1;
+      --muted: #8b9cb3;
+      --accent: #5eb8ff;
+      --accent-dim: #3d7eb8;
+      --warn: #e6b35c;
+      --font: "Segoe UI", system-ui, -apple-system, sans-serif;
+      --mono: "SF Mono", "Consolas", "Menlo", monospace;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.55;
+      font-size: 15px;
+    }
+    a { color: var(--accent); }
+    header {
+      padding: 2.5rem 1.5rem 2rem;
+      border-bottom: 1px solid var(--border);
+      background: linear-gradient(165deg, #15202b 0%, var(--bg) 55%);
+    }
+    header h1 {
+      margin: 0 0 0.5rem;
+      font-size: 1.65rem;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+    }
+    header p { margin: 0; color: var(--muted); max-width: 52rem; }
+    .badge {
+      display: inline-block;
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--accent);
+      border: 1px solid var(--accent-dim);
+      padding: 0.2rem 0.5rem;
+      border-radius: 4px;
+      margin-bottom: 0.75rem;
+    }
+    main { max-width: 56rem; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
+    section {
+      margin-bottom: 2.75rem;
+      padding: 1.5rem 1.25rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+    }
+    section h2 {
+      margin: 0 0 0.5rem;
+      font-size: 1.15rem;
+      font-weight: 600;
+      color: var(--text);
+    }
+    .id { font-family: var(--mono); font-size: 0.8rem; color: var(--warn); margin-bottom: 0.75rem; }
+    .role {
+      font-size: 0.9rem;
+      color: var(--muted);
+      margin-bottom: 1rem;
+      padding-left: 0.85rem;
+      border-left: 3px solid var(--accent-dim);
+    }
+    .prompt {
+      font-family: var(--mono);
+      font-size: 0.82rem;
+      white-space: pre-wrap;
+      word-break: break-word;
+      background: #0d1117;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem 1.1rem;
+      margin: 0;
+      line-height: 1.5;
+      color: #c9d1d9;
+    }
+    .hint {
+      margin-top: 0.75rem;
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+    .global {
+      background: #121a24;
+    }
+    .global ul { margin: 0.5rem 0 0; padding-left: 1.25rem; color: var(--muted); }
+    .global h2 { margin-bottom: 0.75rem; }
+    footer {
+      text-align: center;
+      padding: 2rem 1rem;
+      color: var(--muted);
+      font-size: 0.85rem;
+      border-top: 1px solid var(--border);
+    }
+    @media print {
+      body { background: #fff; color: #111; }
+      header, section { background: #fff; border-color: #ccc; }
+      .prompt { background: #f6f8fa; color: #000; border-color: #ddd; }
+      a { color: #000; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <span class="badge">Prompt library</span>
+    <h1>RAG &amp; content generation — sophisticated prompts</h1>
+    <p>
+      Use these with ChatGPT or similar tools to draft <strong>glossaries</strong>, <strong>JSONL chunks</strong>,
+      <strong>ingest scaffolding</strong>, <strong>grounding blocks</strong>, and <strong>review passes</strong> for the
+      financial literacy chatbot. Always fact-check generated content against your course materials.
+      Machine-readable twin: <code>rag_prompt_library.json</code> in this folder.
+    </p>
+  </header>
+
+  <main>
+    <section class="global">
+      <h2>Global constraints (prepend to any prompt)</h2>
+      <ul>
+        <li>Educational framing only; no personalized financial, tax, or legal advice.</li>
+        <li>Never recommend specific banks, brokerages, funds, stocks, or credit cards by name.</li>
+        <li>Use hypothetical or illustrative numbers only unless citing user-provided values.</li>
+        <li>Plain English for early-career adults (approx. grades 10–14 reading level).</li>
+        <li>Ask for Markdown or JSONL only when specified; no extra commentary unless requested.</li>
+        <li>Mark uncertain factual claims with <code>[verify]</code> for manual review.</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>1. Glossary &amp; topic Markdown (<code>data/rag/*.md</code>)</h2>
+      <div class="id">id: glossary_markdown</div>
+      <p class="role"><strong>System / developer role:</strong> You are helping build an educational (not advisory) financial literacy glossary for college students and early-career professionals.</p>
+      <pre class="prompt">Constraints:
+- No specific product, bank, fund, or stock names.
+- No personalized advice; use "many people" / "in general" framing.
+- Short definitions (2–5 sentences), plain English.
+- Include a "Common misconceptions" bullet where useful.
+
+Output format: Markdown with ## headings per term.
+
+Topics to cover (one section each): budgeting, emergency fund, credit utilization, APR, employer 401(k) match, vesting, student loan repayment plans at a high level.
+
+For each term, include:
+- Definition
+- Why it matters
+- One hypothetical example (clearly labeled as illustrative)
+
+If a detail varies by employer, loan type, or jurisdiction, say so briefly and add [verify] instead of guessing.</pre>
+      <p class="hint">Replace the topic list with your own list (comma-separated). For course alignment, paste a short outline from your syllabus into the prompt as additional constraints.</p>
+    </section>
+
+    <section>
+      <h2>2. RAG chunks as JSONL (<code>data/rag_index/chunks.jsonl</code>)</h2>
+      <div class="id">id: chunks_jsonl</div>
+      <p class="role"><strong>System / developer role:</strong> You produce machine-readable retrieval chunks for a RAG pipeline used in an educational financial literacy chatbot.</p>
+      <pre class="prompt">I need a JSONL file. Each line must be exactly one JSON object with keys: id, text, source, topic
+
+Rules:
+- text: 150–400 words, self-contained, no markdown code fences inside text
+- source: synthetic filename like "glossary.md" or "topic_credit.md"
+- topic: one of [financial_foundations, budget_cashflow, credit_management, workplace_401k, student_loans, borrowing_basics]
+- id: stable slug, e.g. "credit_utilization_001"
+
+Generate 12 chunks total, distributed across topics as evenly as possible.
+Educational only; no product recommendations; no account numbers or PII.
+
+Output ONLY JSONL lines (one object per line). No commentary, no markdown fences.</pre>
+      <p class="hint">Change <code>12</code> to the number of chunks you need. Validate JSONL with a linter before committing.</p>
+    </section>
+
+    <section>
+      <h2>3. Minimal ingest &amp; retrieval Python (keyword scoring)</h2>
+      <div class="id">id: ingest_python_skeleton</div>
+      <p class="role"><strong>System / developer role:</strong> You write small, readable Python for a class project prototype.</p>
+      <pre class="prompt">Write a minimal Python module that:
+- Reads all .md files from a folder path argument
+- Splits on ## headings into chunks
+- Writes chunks.jsonl with objects: {id, text, source, heading}
+- Implements retrieve(query: str, chunks: list[dict], k: int = 5) using simple keyword overlap scoring (tokenize on non-letters, lowercase); no third-party dependencies
+- Includes a stub embed_text(s: str) -> list[float] that raises NotImplementedError with a comment on where to plug in an embedding API
+
+Keep under ~180 lines, type hints optional, include if __name__ == "__main__": demo.
+
+Project context: financial literacy RAG; chunks are educational text only.</pre>
+      <p class="hint">After generation, replace the stub with your Purdue OpenAI-compatible endpoint for embeddings if you use semantic search.</p>
+    </section>
+
+    <section>
+      <h2>4. Speaker grounding block (retrieved excerpts only)</h2>
+      <div class="id">id: speaker_grounding_block</div>
+      <p class="role"><strong>System / developer role:</strong> You write a reusable instruction block for an LLM that receives retrieved context.</p>
+      <pre class="prompt">Write a single string suitable for a system or developer message in an OpenAI-style chat API. It must instruct the model to:
+- Ground explanations primarily in the provided "Retrieved excerpts" section
+- If excerpts do not support a claim, say the knowledge base does not specify it
+- Never recommend specific financial products; explain decision criteria instead
+- Maintain a supportive, non-judgmental educational tone
+- End with a one-line disclaimer that this is educational information, not personalized advice
+
+Do not include placeholders like {{excerpts}} inside the string; instead say "the excerpts provided in the user message" or similar.
+Maximum ~120 words.</pre>
+    </section>
+
+    <section>
+      <h2>5. Review &amp; tighten an existing chunk</h2>
+      <div class="id">id: review_tighten_chunk</div>
+      <p class="role"><strong>System / developer role:</strong> You are an editor for clarity and accessibility, not a source of new financial facts.</p>
+      <pre class="prompt">Here is a glossary or RAG chunk for early-career adults. Improve clarity and reading flow. Do not add new factual claims. If a sentence may be wrong or oversimplified, rewrite cautiously or mark with [verify].
+
+Constraints:
+- No product names
+- No personalized advice
+- Keep length within ±15% of the original
+
+---
+[PASTE CHUNK TEXT HERE]
+---</pre>
+    </section>
+
+    <section>
+      <h2>6. Phase 4 plan with injected RAG context</h2>
+      <div class="id">id: phase4_plan_with_rag</div>
+      <p class="role"><strong>System / developer role:</strong> You are the Speaker for Phase 4 Plan Generation in a phase-based financial literacy chatbot.</p>
+      <pre class="prompt">User profile and goal are in JSON below. Retrieved excerpts from our knowledge base are provided; they may be incomplete.
+
+Produce a structured educational plan with these sections in order:
+1) Situation summary (use user state; no internal field names)
+2) Key concepts (ground in excerpts when possible; flag gaps)
+3) Step-by-step checklist (actionable, non-product)
+4) Risks and pitfalls (general patterns, not predictions)
+5) 30-day action plan (weekly milestones)
+
+If excerpts conflict, prefer cautious language and [verify] rather than asserting one version.
+
+State JSON:
+[PASTE SERIALIZED STATE JSON]
+
+Retrieved excerpts:
+[PASTE TOP-K CHUNKS AS PLAIN TEXT OR NUMBERED LIST]</pre>
+      <p class="hint">In code, replace the placeholders with <code>state.model_dump()</code> and your retrieved chunks. Keep total context under your model’s limit.</p>
+    </section>
+  </main>
+
+  <footer>
+    Financial literacy chatbot — prompt library. For educational use; verify all facts before production use.
+  </footer>
+</body>
+</html>

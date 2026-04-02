@@ -12,6 +12,9 @@ The system separates AI reasoning from deterministic logic:
 | **Orchestrator** | Code | Maintains state, validates data, controls phase transitions |
 | **Speaker** | LLM | Generates conversational responses |
 | **Artifact Renderer** | Code | Produces PDF summaries |
+| **RAG (retrieval)** | Code | Loads curated chunks; **Phase 4** plan grounding via keyword retrieval |
+
+See **`Rag_implementation.md`** (and `Rag_implementation.html`) for full RAG documentation.
 
 ## Conversation Phases
 
@@ -57,13 +60,19 @@ chatbot/
 │   ├── analyzer.py           # LLM fact extraction
 │   ├── speaker.py            # LLM response generation
 │   ├── validator.py          # Field validation
-│   └── pdf_generator.py      # PDF artifact renderer
+│   ├── pdf_generator.py      # PDF artifact renderer
+│   └── rag/                  # RAG: ingest, retrieval, prompts
+├── data/
+│   ├── rag/                  # Source Markdown for RAG (edit here)
+│   └── rag_index/
+│       └── chunks.jsonl      # Built chunk index (run app/rag/ingest.py)
 ├── md/
 │   ├── domain_brief.md       # Project specification
 │   ├── state_schema.json     # State schema (JSON Schema)
 │   ├── phase_registry.json   # Phase definitions
 │   ├── orchestrator_rules.md # Orchestrator rule set
 │   └── skills/               # LLM skill prompts (analyzer + speaker per phase)
+├── Rag_implementation.md     # RAG design & operations
 ├── requirements.txt
 ├── .env.example
 └── README.md

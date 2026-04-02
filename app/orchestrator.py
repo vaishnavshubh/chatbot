@@ -6,8 +6,10 @@ Implements the pseudocode from md/orchestrator_rules.md:
 """
 
 import logging
+import os
 import re
 from pathlib import Path
+from typing import Any
 
 from state import ChatbotState, get_field, set_field
 from phase_registry import PhaseRegistry
@@ -101,11 +103,13 @@ class Orchestrator:
         analyzer: Analyzer,
         speaker: Speaker,
         skill_loader: SkillLoader,
+        rag_retriever: Any | None = None,
     ):
         self.registry = registry
         self.analyzer = analyzer
         self.speaker = speaker
         self.skill_loader = skill_loader
+        self.rag_retriever = rag_retriever
 
     # ── Public API ──────────────────────────────────────────────────────
 
@@ -178,7 +182,13 @@ class Orchestrator:
         missing = self.registry.get_missing_fields(state.current_phase, state)
         payload = self._build_payload(phase, state, missing)
         speaker_skill = self.skill_loader.load(phase["skills"]["speaker"])
-        response = self.speaker.run(speaker_skill, payload, history)
+        rag_context = self._build_rag_context(state) if state.current_phase == 3 else None
+        response = self.speaker.run(
+            speaker_skill,
+            payload,
+            history,
+            rag_context=rag_context,
+        )
         response = self._safety_check(response)
 
         # ── 8. Artifacts ────────────────────────────────────────────
@@ -208,12 +218,37 @@ class Orchestrator:
                 "and would benefit from revisiting with actual numbers."
             )
 
-        response = self.speaker.run(speaker_skill, payload, history, max_tokens=4000)
+        rag_context = self._build_rag_context(state)
+
+        response = self.speaker.run(
+            speaker_skill,
+            payload,
+            history,
+            max_tokens=4000,
+            rag_context=rag_context,
+        )
         response = self._safety_check(response)
         state.plan_generated = True
 
         artifacts = self._check_artifacts(state)
         return response, state, artifacts
+
+    def _build_rag_context(self, state: ChatbotState) -> str | None:
+        """Retrieve top chunks for Phase 4 plan grounding (deterministic retrieval)."""
+        if os.getenv("RAG_ENABLED", "1").lower() not in ("1", "true", "yes"):
+            return None
+        rr = self.rag_retriever
+        if rr is None or not getattr(rr, "enabled", False):
+            return None
+        try:
+            from rag.prompts import format_rag_message
+
+            k = int(os.getenv("RAG_TOP_K", "5"))
+            chunks = rr.retrieve_for_state(state, k=k)
+            return format_rag_message(chunks) or None
+        except Exception as exc:
+            log.warning("RAG retrieval failed: %s", exc)
+            return None
 
     def _build_payload(
         self,
