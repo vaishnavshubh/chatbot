@@ -53,7 +53,7 @@ If the user provides corrections and asks for a new plan:
 | Scenario | Handling |
 |---|---|
 | User asks a follow-up question about a concept in the plan | Return `{}` — the speaker handles educational Q&A within Phase 4 |
-| User says "Can I get the PDF now?" | Return `{"artifact_requested": "pdf"}` |
+| User asks for a PDF or CSV file | Return `{}` — the speaker explains the plan stays in chat (no downloadable file) |
 | User wants to change their goal entirely | Return `{"goal_change_requested": true}` — the orchestrator decides how to handle this |
 | User says "Looks good, what's next?" | Return `{}` — the orchestrator advances to Phase 5 |
 

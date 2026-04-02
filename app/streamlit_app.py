@@ -24,7 +24,6 @@ from phase_registry import PhaseRegistry
 from analyzer import Analyzer
 from speaker import Speaker
 from orchestrator import Orchestrator, SkillLoader
-from pdf_generator import generate_pdf
 
 # ── Paths ───────────────────────────────────────────────────────────────
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -144,8 +143,6 @@ def _init_session():
         st.session_state.state = ChatbotState(session_id=str(uuid.uuid4()))
     if "messages" not in st.session_state:
         st.session_state.messages = []
-    if "plan_text" not in st.session_state:
-        st.session_state.plan_text = None
     if "initialized" not in st.session_state:
         st.session_state.initialized = False
 
@@ -153,7 +150,6 @@ def _init_session():
 def _reset_session():
     st.session_state.state = ChatbotState(session_id=str(uuid.uuid4()))
     st.session_state.messages = []
-    st.session_state.plan_text = None
     st.session_state.initialized = False
 
 
@@ -200,19 +196,6 @@ def _render_sidebar():
             st.sidebar.caption(
                 "RAG: index missing — run `python app/rag/ingest.py` from project root"
             )
-
-    # PDF download
-    if st.session_state.plan_text and state.output_preference == "pdf":
-        try:
-            pdf_bytes = generate_pdf(state, st.session_state.plan_text)
-            st.sidebar.download_button(
-                label="\U0001f4c4 Download PDF Plan",
-                data=pdf_bytes,
-                file_name="financial_literacy_plan.pdf",
-                mime="application/pdf",
-            )
-        except Exception:
-            st.sidebar.warning("PDF generation failed.")
 
     # Session complete?
     if state.selected_next_action:
@@ -268,11 +251,6 @@ def main():
         st.session_state.state = new_state
         st.session_state.messages.append({"role": "assistant", "content": response})
 
-        # Store plan text for PDF generation
-        if new_state.plan_generated and st.session_state.plan_text is None:
-            st.session_state.plan_text = response
-
-        # Rerun to update sidebar progress + PDF button
         st.rerun()
 
 

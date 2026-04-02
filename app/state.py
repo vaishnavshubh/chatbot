@@ -63,7 +63,7 @@ class ChatbotState(BaseModel):
     session_id: Optional[str] = None
     current_phase: int = Field(0, ge=0, le=5)
     consent_acknowledged: bool = False
-    output_preference: Optional[Literal["chat", "pdf", "csv", "charts"]] = None
+    output_preference: Optional[Literal["chat", "charts"]] = None
     profile: Profile = Field(default_factory=Profile)
     goal: Goal = Field(default_factory=Goal)
     budget: Budget = Field(default_factory=Budget)

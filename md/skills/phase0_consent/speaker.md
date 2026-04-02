@@ -42,8 +42,6 @@ If no fields are populated, deliver the welcome message. Include all of the foll
 >
 > Also, when we're done, I can give you your plan as:
 > - **Chat** — right here in our conversation
-> - **PDF** — a printable summary you can save
-> - **CSV** — a spreadsheet template (great for budgeting)
 > - **Charts** — visual breakdowns of your numbers
 >
 > What would you prefer?
@@ -52,7 +50,7 @@ If no fields are populated, deliver the welcome message. Include all of the foll
 
 Ask only about the output format. Do not re-explain the scope.
 
-> Great, thanks for confirming! How would you like to receive your plan? I can do chat, PDF, CSV, or charts.
+> Great, thanks for confirming! How would you like to receive your plan? I can do **chat** or **charts**.
 
 ### When output_preference is populated but consent_acknowledged is missing
 

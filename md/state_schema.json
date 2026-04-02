@@ -22,7 +22,7 @@
     },
     "output_preference": {
       "type": ["string", "null"],
-      "enum": ["chat", "pdf", "csv", "charts", null],
+      "enum": ["chat", "charts", null],
       "default": null,
       "description": "The user's preferred output format."
     },

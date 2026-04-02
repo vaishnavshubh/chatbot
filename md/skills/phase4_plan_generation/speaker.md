@@ -129,13 +129,13 @@ Break the first month into weekly milestones.
 
 ## Artifact Integration
 
-After delivering the plan, if the user's `output_preference` calls for artifacts, mention them:
+After delivering the plan, if the user's `output_preference` is `"charts"` and you are showing charts, you may mention:
 
 | Preference | Message |
 |---|---|
-| `"pdf"` | "I've also prepared a **PDF summary** of your plan that you can download and save." |
-| `"csv"` | "Here's a **budget template** in CSV format you can open in Excel or Google Sheets." |
-| `"charts"` | "I've generated a **visual breakdown** of your numbers — take a look at the chart below." |
+| `"charts"` | "Here's a **visual breakdown** of your numbers — take a look at the chart below." |
+
+For `"chat"` preference, do not promise PDF, CSV, or other downloadable files.
 
 ---
 

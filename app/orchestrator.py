@@ -276,8 +276,5 @@ class Orchestrator:
         return response
 
     @staticmethod
-    def _check_artifacts(state: ChatbotState) -> dict:
-        artifacts: dict = {}
-        if state.output_preference == "pdf" and not state.artifacts.pdf_generated:
-            artifacts["pdf_requested"] = True
-        return artifacts
+    def _check_artifacts(_state: ChatbotState) -> dict:
+        return {}

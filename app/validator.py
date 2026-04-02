@@ -4,7 +4,7 @@ defined in state_schema.json before they are merged into state.
 """
 
 ENUM_VALIDATORS: dict[str, list[str]] = {
-    "output_preference": ["chat", "pdf", "csv", "charts"],
+    "output_preference": ["chat", "charts"],
     "profile.life_stage": ["student", "new_graduate", "early_career", "career_changer"],
     "profile.pay_type": ["salaried", "hourly", "freelance", "stipend"],
     "profile.pay_frequency": ["weekly", "biweekly", "semi_monthly", "monthly"],
