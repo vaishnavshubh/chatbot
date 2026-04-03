@@ -5,6 +5,7 @@ Run from the project root:
     streamlit run app/streamlit_app.py
 """
 
+import html
 import os
 import sys
 import uuid
@@ -62,24 +63,41 @@ def _looks_like_plan_markdown(text: str) -> bool:
     return bool(re.search(_MD_PLAN_HINTS, text))
 
 
-def _escape_markdown(text: str) -> str:
-    """Escape markdown special chars for clean plain-text rendering."""
-    # Escape backslashes first
-    text = text.replace("\\", "\\\\")
-    for ch in ["*", "_", "`"]:
-        text = text.replace(ch, f"\\{ch}")
-    return text
+def _render_plan_markdown(content: str) -> None:
+    """Plan keeps ## / lists; normalize entities and avoid $...$ math mode."""
+    text = html.unescape(content)
+    text = text.replace("$", r"\$")
+    st.markdown(text)
+
+
+def _render_plain_chat(text: str) -> None:
+    """
+    Show assistant/user chat as readable plain text.
+
+    - Models sometimes emit HTML entities (e.g. &#x27;). html.escape() would turn
+      the '&' into &amp; and break them unless we unescape first.
+    - Streamlit markdown parses $...$ as math (red/error styling). Replacing $
+      with &#36; keeps dollar amounts readable without LaTeX.
+    """
+    text = html.unescape(text)
+    safe = html.escape(text, quote=False)
+    safe = safe.replace("$", "&#36;")
+    st.markdown(
+        '<div style="white-space: pre-wrap; font-family: sans-serif;">'
+        f"{safe}</div>",
+        unsafe_allow_html=True,
+    )
 
 
 def _render_message(role: str, content: str) -> None:
     """
-    Render a message. For assistant non-plan messages, avoid markdown emphasis artifacts
-    by escaping markdown characters.
+    Plan responses use markdown. Everything else is plain text so dollar amounts
+    and asterisks from the model do not turn into math or garbled emphasis.
     """
-    if role == "assistant" and not _looks_like_plan_markdown(content):
-        st.markdown(_escape_markdown(content))
+    if role == "assistant" and _looks_like_plan_markdown(content):
+        _render_plan_markdown(content)
     else:
-        st.markdown(content)
+        _render_plain_chat(content)
 
 
 # ── Page config ─────────────────────────────────────────────────────────
