@@ -166,8 +166,6 @@
         "30-Day Action Plan"
       ],
       "artifact_triggers": {
-        "pdf": "output_preference == 'pdf'",
-        "csv": "goal.primary_goal == 'budget_cashflow'",
         "chart": "output_preference == 'charts' AND numeric evidence exists"
       },
       "skills": {

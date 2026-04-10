@@ -19,7 +19,7 @@ Return a JSON object with only the fields that can be confidently extracted. Omi
 ```json
 {
   "consent_acknowledged": true,
-  "output_preference": "pdf"
+  "output_preference": "chat"
 }
 ```
 
@@ -49,9 +49,9 @@ Extract the user's preferred output format. Allowed values:
 | Value | User signals |
 |---|---|
 | `"chat"` | "Just chat is fine", "text only", "no files needed", default if user doesn't specify |
-| `"pdf"` | "PDF", "document", "printable summary", "something I can save" |
-| `"csv"` | "CSV", "spreadsheet", "Excel", "table I can edit" |
 | `"charts"` | "Charts", "graphs", "visual", "show me visuals" |
+
+If the user asks for PDF, CSV, spreadsheet, Excel, or a printable file, treat that as **`"chat"`** — the app delivers the plan in the conversation only (no downloadable PDF or CSV).
 
 If the user provides consent but does not mention a format preference, extract only `consent_acknowledged` and omit `output_preference`.
 
@@ -63,7 +63,7 @@ If the user provides consent but does not mention a format preference, extract o
 |---|---|
 | User says "yes" with no mention of format | Return `{"consent_acknowledged": true}` only |
 | User asks "what formats are available?" | Return empty `{}` — the speaker should list options |
-| User says "sure, and give me a PDF" | Return `{"consent_acknowledged": true, "output_preference": "pdf"}` |
+| User says "sure, and give me a PDF" | Return `{"consent_acknowledged": true, "output_preference": "chat"}` |
 | User says "I want investment advice" | Return empty `{}` — the speaker must re-explain scope |
 | User provides multiple formats | Pick the first mentioned; the speaker can confirm |
 
@@ -73,6 +73,6 @@ If the user provides consent but does not mention a format preference, extract o
 
 The orchestrator will reject:
 - `consent_acknowledged` values that are not boolean
-- `output_preference` values not in `["chat", "pdf", "csv", "charts"]`
+- `output_preference` values not in `["chat", "charts"]`
 
 Only extract what is clearly stated. When in doubt, omit the field.

@@ -63,7 +63,7 @@ If the user's response is vague, return `{}` so the speaker can ask for somethin
 |---|---|
 | "Can we do another topic?" | `{"another_session_requested": true}` |
 | "I'm done, thanks" | `{"session_complete": true}` — the speaker delivers a closing message |
-| "Can I get the PDF?" | `{"artifact_requested": "pdf"}` |
+| "Can I get the PDF?" | Return `{}` — the speaker explains the plan is available in the chat history |
 
 ---
 

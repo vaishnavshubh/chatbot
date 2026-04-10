@@ -1,0 +1,58 @@
+{
+  "meta": {
+    "title": "RAG & Content Generation Prompt Library",
+    "version": "1.0",
+    "purpose": "Structured prompts for drafting glossaries, JSONL chunks, ingest scaffolding, grounding wrappers, and review passes for the financial literacy chatbot.",
+    "disclaimer": "Generated drafts require human fact-checking against course materials and primary sources. Do not treat model output as legal, tax, or personalized financial advice."
+  },
+  "global_constraints": {
+    "always_include": [
+      "Educational framing only; no personalized financial, tax, or legal advice.",
+      "Never recommend specific banks, brokerages, funds, stocks, or credit cards by name.",
+      "Use hypothetical or illustrative numbers only unless citing a user-provided value.",
+      "Plain English suitable for early-career adults (approx. grades 10–14 reading level)."
+    ],
+    "output_hygiene": [
+      "Ask for Markdown or JSONL only when specified; no surrounding commentary unless requested.",
+      "Label uncertain factual claims with [verify] for manual review."
+    ]
+  },
+  "prompts": [
+    {
+      "id": "glossary_markdown",
+      "title": "Glossary & topic markdown (data/rag/*.md)",
+      "model_role": "You are helping build an educational (not advisory) financial literacy glossary for college students and early-career professionals.",
+      "user_template": "Constraints:\n- No specific product, bank, fund, or stock names.\n- No personalized advice; use \"many people\" / \"in general\" framing.\n- Short definitions (2–5 sentences), plain English.\n- Include a \"Common misconceptions\" bullet where useful.\n\nOutput format: Markdown with ## headings per term.\n\nTopics to cover (one section each): {{topics}}\n\nFor each term, include:\n- Definition\n- Why it matters\n- One hypothetical example (clearly labeled as illustrative)\n\nIf a detail varies by employer, loan type, or jurisdiction, say so briefly and add [verify] instead of guessing."
+    },
+    {
+      "id": "chunks_jsonl",
+      "title": "RAG chunks as JSONL (data/rag_index/chunks.jsonl)",
+      "model_role": "You produce machine-readable retrieval chunks for a RAG pipeline used in an educational financial literacy chatbot.",
+      "user_template": "I need a JSONL file. Each line must be exactly one JSON object with keys: id, text, source, topic\n\nRules:\n- text: 150–400 words, self-contained, no markdown code fences inside text\n- source: synthetic filename like \"glossary.md\" or \"topic_credit.md\"\n- topic: one of [financial_foundations, budget_cashflow, credit_management, workplace_401k, student_loans, borrowing_basics]\n- id: stable slug, e.g. \"credit_utilization_001\"\n\nGenerate {{chunk_count}} chunks total, distributed across topics as evenly as possible.\nEducational only; no product recommendations; no account numbers or PII.\n\nOutput ONLY JSONL lines (one object per line). No commentary, no markdown fences."
+    },
+    {
+      "id": "ingest_python_skeleton",
+      "title": "Minimal ingest / retrieval Python (keyword or stub embeddings)",
+      "model_role": "You write small, readable Python for a class project prototype.",
+      "user_template": "Write a minimal Python module that:\n- Reads all .md files from a folder path argument\n- Splits on ## headings into chunks\n- Writes chunks.jsonl with objects: {id, text, source, heading}\n- Implements retrieve(query: str, chunks: list[dict], k: int = 5) using simple keyword overlap scoring (tokenize on non-letters, lowercase); no third-party dependencies\n- Includes a stub embed_text(s: str) -> list[float] that raises NotImplementedError with a comment on where to plug in an embedding API\n\nKeep under ~180 lines, type hints optional, include if __name__ == \"__main__\": demo.\n\nProject context: financial literacy RAG; chunks are educational text only."
+    },
+    {
+      "id": "speaker_grounding_block",
+      "title": "System / developer snippet: use retrieved excerpts only",
+      "model_role": "You write a reusable instruction block for an LLM that receives retrieved context.",
+      "user_template": "Write a single string suitable for a system or developer message in an OpenAI-style chat API. It must instruct the model to:\n- Ground explanations primarily in the provided \"Retrieved excerpts\" section\n- If excerpts do not support a claim, say the knowledge base does not specify it\n- Never recommend specific financial products; explain decision criteria instead\n- Maintain a supportive, non-judgmental educational tone\n- End with a one-line disclaimer that this is educational information, not personalized advice\n\nDo not include placeholders like {{excerpts}} inside the string; instead say \"the excerpts provided in the user message\" or similar.\nMaximum ~120 words."
+    },
+    {
+      "id": "review_tighten_chunk",
+      "title": "Review pass on an existing chunk",
+      "model_role": "You are an editor for clarity and accessibility, not a source of new financial facts.",
+      "user_template": "Here is a glossary or RAG chunk for early-career adults. Improve clarity and reading flow. Do not add new factual claims. If a sentence may be wrong or oversimplified, rewrite cautiously or mark with [verify].\n\nConstraints:\n- No product names\n- No personalized advice\n- Keep length within ±15% of the original\n\n---\n{{chunk_text}}\n---"
+    },
+    {
+      "id": "phase4_plan_with_rag",
+      "title": "Phase 4 plan generation with injected RAG context (orchestrator integration)",
+      "model_role": "You are the Speaker for Phase 4 Plan Generation in a phase-based financial literacy chatbot.",
+      "user_template": "User profile and goal are in JSON below. Retrieved excerpts from our knowledge base are provided; they may be incomplete.\n\nProduce a structured educational plan with these sections in order:\n1) Situation summary (use user state; no internal field names)\n2) Key concepts (ground in excerpts when possible; flag gaps)\n3) Step-by-step checklist (actionable, non-product)\n4) Risks and pitfalls (general patterns, not predictions)\n5) 30-day action plan (weekly milestones)\n\nIf excerpts conflict, prefer cautious language and [verify] rather than asserting one version.\n\nState JSON:\n{{state_json}}\n\nRetrieved excerpts:\n{{retrieved_excerpts}}"
+    }
+  ]
+}
