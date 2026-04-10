@@ -20,6 +20,7 @@ import streamlit as st
 from dotenv import load_dotenv
 from openai import OpenAI
 
+from llm_backend import GeminiChatBackend, OpenAIChatBackend, use_gemini
 from state import ChatbotState
 from phase_registry import PhaseRegistry
 from analyzer import Analyzer
@@ -110,17 +111,34 @@ st.set_page_config(
 
 # ── Cached resources (created once per server lifetime) ─────────────────
 @st.cache_resource
-def _build_openai_client() -> OpenAI:
+def _build_llm_backend():
+    """Gemini API (GEMINI_API_KEY) or OpenAI-compatible API (OPENAI_API_KEY)."""
+    if use_gemini():
+        from google import genai
+
+        key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY", "")
+        if not key:
+            st.error(
+                "**GEMINI_API_KEY not found.**  \n"
+                "Create a `.env` with your key from https://aistudio.google.com/apikey  \n"
+                "or unset GEMINI_API_KEY to use OpenAI / Ollama instead."
+            )
+            st.stop()
+        client = genai.Client(api_key=key)
+        return GeminiChatBackend(client)
+
     api_key = os.getenv("OPENAI_API_KEY", "")
     if not api_key:
         st.error(
             "**OPENAI_API_KEY not found.**  \n"
             "Create a `.env` file in the project root with:  \n"
-            "`OPENAI_API_KEY=sk-...`"
+            "`OPENAI_API_KEY=sk-...`  \n"
+            "Or set **GEMINI_API_KEY** to use Google Gemini / Gemma via the Gemini API."
         )
         st.stop()
     base_url = os.getenv("OPENAI_BASE_URL", None)
-    return OpenAI(api_key=api_key, base_url=base_url) if base_url else OpenAI(api_key=api_key)
+    oa = OpenAI(api_key=api_key, base_url=base_url) if base_url else OpenAI(api_key=api_key)
+    return OpenAIChatBackend(oa)
 
 
 @st.cache_resource
@@ -145,11 +163,11 @@ def _build_rag_retriever():
 
 
 def _build_orchestrator() -> Orchestrator:
-    client = _build_openai_client()
+    backend = _build_llm_backend()
     return Orchestrator(
         registry=_build_registry(),
-        analyzer=Analyzer(client),
-        speaker=Speaker(client),
+        analyzer=Analyzer(backend),
+        speaker=Speaker(backend),
         skill_loader=_build_skill_loader(),
         rag_retriever=_build_rag_retriever(),
     )

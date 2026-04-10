@@ -5,17 +5,15 @@ speaker skill prompt to the LLM and returns a conversational response.
 
 import json
 import logging
-import os
-from openai import OpenAI
+
+from llm_backend import ChatBackend
 
 log = logging.getLogger(__name__)
 
-MODEL = os.getenv("LLM_MODEL", "llama4:latest")
-
 
 class Speaker:
-    def __init__(self, client: OpenAI):
-        self.client = client
+    def __init__(self, backend: ChatBackend):
+        self._backend = backend
 
     def run(
         self,
@@ -25,7 +23,7 @@ class Speaker:
         max_tokens: int = 2000,
         rag_context: str | None = None,
     ) -> str:
-        messages: list[dict] = [
+        messages: list[dict[str, str]] = [
             {"role": "system", "content": skill_prompt},
             {
                 "role": "system",
@@ -47,13 +45,11 @@ class Speaker:
                 })
 
         try:
-            resp = self.client.chat.completions.create(
-                model=MODEL,
+            return self._backend.complete(
                 messages=messages,
-                temperature=0.7,
                 max_tokens=max_tokens,
+                temperature=0.7,
             )
-            return resp.choices[0].message.content
 
         except Exception as exc:
             log.warning("Speaker error: %s", exc)
