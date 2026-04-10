@@ -16,8 +16,21 @@ from pathlib import Path
 # Ensure sibling modules are importable when Streamlit runs this file directly.
 sys.path.insert(0, str(Path(__file__).parent))
 
-import streamlit as st
+# ── Paths (before dotenv / Streamlit) ───────────────────────────────────
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+MD_DIR = PROJECT_ROOT / "md"
+ENV_PATH = PROJECT_ROOT / ".env"
+
 from dotenv import load_dotenv
+
+load_dotenv(ENV_PATH)
+
+import streamlit as st
+
+from secrets_util import apply_streamlit_secrets_to_environ
+
+apply_streamlit_secrets_to_environ(st)
+
 from openai import OpenAI
 
 from llm_backend import GeminiChatBackend, OpenAIChatBackend, use_gemini
@@ -27,12 +40,6 @@ from analyzer import Analyzer
 from speaker import Speaker
 from orchestrator import Orchestrator, SkillLoader
 
-# ── Paths ───────────────────────────────────────────────────────────────
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-MD_DIR = PROJECT_ROOT / "md"
-ENV_PATH = PROJECT_ROOT / ".env"
-
-load_dotenv(ENV_PATH)
 logging.basicConfig(level=logging.INFO)
 
 # ── Constants ───────────────────────────────────────────────────────────
@@ -120,8 +127,9 @@ def _build_llm_backend():
         if not key:
             st.error(
                 "**GEMINI_API_KEY not found.**  \n"
-                "Create a `.env` with your key from https://aistudio.google.com/apikey  \n"
-                "or unset GEMINI_API_KEY to use OpenAI / Ollama instead."
+                "Locally: set it in `.env` (see `.env.example`).  \n"
+                "On **Streamlit Community Cloud**: App settings → Secrets → add `GEMINI_API_KEY`.  \n"
+                "Key: https://aistudio.google.com/apikey — or unset Gemini and use OpenAI / Ollama."
             )
             st.stop()
         client = genai.Client(api_key=key)
@@ -131,9 +139,9 @@ def _build_llm_backend():
     if not api_key:
         st.error(
             "**OPENAI_API_KEY not found.**  \n"
-            "Create a `.env` file in the project root with:  \n"
-            "`OPENAI_API_KEY=sk-...`  \n"
-            "Or set **GEMINI_API_KEY** to use Google Gemini / Gemma via the Gemini API."
+            "Locally: add `OPENAI_API_KEY` to `.env` (see `.env.example`).  \n"
+            "On **Streamlit Community Cloud**: App settings → Secrets → add `OPENAI_API_KEY` (and optional `OPENAI_BASE_URL`).  \n"
+            "Or set **GEMINI_API_KEY** to use Google Gemini / Gemma instead."
         )
         st.stop()
     base_url = os.getenv("OPENAI_BASE_URL", None)

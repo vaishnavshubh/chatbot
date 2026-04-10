@@ -1,0 +1,8 @@
+# Streamlit Community Cloud and local runs
+# https://docs.streamlit.io/develop/concepts/configuration
+
+[server]
+headless = true
+
+[browser]
+gatherUsageStats = false
