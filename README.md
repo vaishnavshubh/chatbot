@@ -29,7 +29,9 @@ See **`Rag_implementation.md`** (and `Rag_implementation.html`) for full RAG doc
 
 ## Quick Start
 
-### 1. Install dependencies
+### 1. Python environment
+
+Use **Python 3.14.4** (see `runtime.txt` and `.python-version` for pyenv). Then install dependencies:
 
 ```bash
 pip install -r requirements.txt
@@ -57,6 +59,21 @@ The app opens at `http://localhost:8501`.
 
 Restart Streamlit after changing `.env` (the LLM backend is cached on first load).
 
+## Deploy on Streamlit Community Cloud
+
+This repo is set up for [Streamlit Community Cloud](https://streamlit.io/cloud):
+
+1. Push the repo to **GitHub** and sign in at [share.streamlit.io](https://share.streamlit.io).
+2. **New app** → pick the repo and branch.
+3. **Main file path:** `streamlit_app.py` (repository root). This delegates to `app/streamlit_app.py` so paths to `md/` and `data/` stay correct.
+4. **App settings → Secrets** → paste TOML (use **flat** keys). Copy from `.streamlit/secrets.toml.example` and replace placeholders:
+   - **Gemini (default):** `GEMINI_API_KEY`, `LLM_MODEL`
+   - **OpenAI / Ollama:** remove `GEMINI_API_KEY`, set `OPENAI_API_KEY`, optional `OPENAI_BASE_URL`, `LLM_MODEL`
+   - Optional: `RAG_ENABLED`, `RAG_TOP_K`
+5. **Python version:** Target **Python 3.14.4** locally and in CI. On **Streamlit Community Cloud**, open **Advanced settings** when you deploy (or **App settings** after deploy) and choose **Python 3.14** from the dropdown ([docs](https://docs.streamlit.io/deploy/streamlit-community-cloud/deploy-your-app/deploy#optional-configure-secrets-and-python-version)) — pick the newest 3.14.x if 3.14.4 is not listed exactly. The repo’s `runtime.txt` documents the intended version for other hosts (e.g. Heroku-style buildpacks) that read it.
+
+`md/`, `data/rag_index/chunks.jsonl`, and RAG sources under `data/rag/` must be **committed** so the deployed app can load them. Do **not** commit `.env` or `.streamlit/secrets.toml`.
+
 ## Gemini API vs OpenAI-compatible
 
 - **Gemini API:** If `GEMINI_API_KEY` or `GOOGLE_API_KEY` is set, requests go through [`google-genai`](https://github.com/googleapis/python-genai) (`app/llm_backend.py`). Set `LLM_MODEL` to the hosted Gemma / Gemini id you want.
@@ -74,6 +91,8 @@ If the Analyzer’s JSON is flaky, try a larger model or lower temperature in `a
 
 ```
 chatbot/
+├── streamlit_app.py          # Cloud entry (run app/streamlit_app.py)
+├── runtime.txt               # Intended Python version (3.14.4); Cloud uses Advanced settings
 ├── app/
 │   ├── streamlit_app.py      # Streamlit UI entry point
 │   ├── orchestrator.py       # Core conversation loop

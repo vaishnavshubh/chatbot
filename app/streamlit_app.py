@@ -18,18 +18,7 @@ from pathlib import Path
 # Ensure sibling modules are importable when Streamlit runs this file directly.
 sys.path.insert(0, str(Path(__file__).parent))
 
-import streamlit as st
-from dotenv import load_dotenv
-from openai import OpenAI
-
-from llm_backend import GeminiChatBackend, OpenAIChatBackend, use_gemini
-from state import ChatbotState
-from phase_registry import PhaseRegistry
-from analyzer import Analyzer
-from speaker import Speaker
-from orchestrator import Orchestrator, SkillLoader
-
-# ── Paths ───────────────────────────────────────────────────────────────
+# ── Paths (before dotenv / Streamlit) ───────────────────────────────────
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 MD_DIR = PROJECT_ROOT / "md"
 ENV_PATH = PROJECT_ROOT / ".env"
@@ -45,12 +34,30 @@ THEME = {
     "light": "#E8F5E9",
 }
 
+from dotenv import load_dotenv
+
 load_dotenv(ENV_PATH)
-# Trim accidental spaces from .env values (e.g. KEY= mykey).
+
+import streamlit as st
+
+from secrets_util import apply_streamlit_secrets_to_environ
+
+apply_streamlit_secrets_to_environ(st)
+
+# Trim accidental spaces from .env / secrets values (e.g. KEY= mykey).
 for _env_name in ("GEMINI_API_KEY", "GOOGLE_API_KEY", "OPENAI_API_KEY"):
     _v = os.getenv(_env_name)
     if _v is not None:
         os.environ[_env_name] = _v.strip()
+
+from openai import OpenAI
+
+from llm_backend import GeminiChatBackend, OpenAIChatBackend, use_gemini
+from state import ChatbotState
+from phase_registry import PhaseRegistry
+from analyzer import Analyzer
+from speaker import Speaker
+from orchestrator import Orchestrator, SkillLoader
 
 logging.basicConfig(level=logging.INFO)
 
@@ -298,8 +305,9 @@ def _build_llm_backend():
         if not key:
             st.error(
                 "**GEMINI_API_KEY not found.**  \n"
-                "Create a `.env` with your key from https://aistudio.google.com/apikey  \n"
-                "or unset GEMINI_API_KEY to use OpenAI / Ollama instead."
+                "Locally: set it in `.env` (see `.env.example`).  \n"
+                "On **Streamlit Community Cloud**: App settings → Secrets → add `GEMINI_API_KEY`.  \n"
+                "Key: https://aistudio.google.com/apikey — or unset Gemini and use OpenAI / Ollama."
             )
             st.stop()
         client = genai.Client(api_key=key)
@@ -309,9 +317,9 @@ def _build_llm_backend():
     if not api_key:
         st.error(
             "**OPENAI_API_KEY not found.**  \n"
-            "Create a `.env` file in the project root with:  \n"
-            "`OPENAI_API_KEY=sk-...`  \n"
-            "Or set **GEMINI_API_KEY** to use Google Gemini / Gemma via the Gemini API."
+            "Locally: add `OPENAI_API_KEY` to `.env` (see `.env.example`).  \n"
+            "On **Streamlit Community Cloud**: App settings → Secrets → add `OPENAI_API_KEY` (and optional `OPENAI_BASE_URL`).  \n"
+            "Or set **GEMINI_API_KEY** to use Google Gemini / Gemma instead."
         )
         st.stop()
     base_url = os.getenv("OPENAI_BASE_URL", None)

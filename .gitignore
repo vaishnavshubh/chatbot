@@ -3,4 +3,5 @@ __pycache__/
 *.pyc
 .DS_Store
 *.pdf
-.streamlit/
+# Streamlit Community Cloud secrets (never commit)
+.streamlit/secrets.toml
