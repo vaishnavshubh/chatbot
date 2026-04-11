@@ -6,7 +6,7 @@ speaker skill prompt to the LLM and returns a conversational response.
 import json
 import logging
 
-from llm_backend import ChatBackend
+from llm_backend import ChatBackend, message_from_history_entry
 
 log = logging.getLogger(__name__)
 
@@ -23,7 +23,7 @@ class Speaker:
         max_tokens: int = 2000,
         rag_context: str | None = None,
     ) -> str:
-        messages: list[dict[str, str]] = [
+        messages: list[dict] = [
             {"role": "system", "content": skill_prompt},
             {
                 "role": "system",
@@ -39,10 +39,7 @@ class Speaker:
 
         if history:
             for msg in history[-10:]:
-                messages.append({
-                    "role": msg["role"],
-                    "content": msg["content"],
-                })
+                messages.append(message_from_history_entry(msg))
 
         try:
             return self._backend.complete(

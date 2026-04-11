@@ -19,6 +19,17 @@ from validator import is_valid
 
 log = logging.getLogger(__name__)
 
+
+def _user_images_from_history(history: list[dict]) -> list[tuple[bytes, str]] | None:
+    """Read image attachments from the latest user message, if any."""
+    if not history or history[-1].get("role") != "user":
+        return None
+    raw: list[tuple[bytes, str]] = []
+    for im in history[-1].get("images") or []:
+        if isinstance(im, dict) and "data" in im and "mime_type" in im:
+            raw.append((im["data"], im["mime_type"]))
+    return raw or None
+
 # ── Map analyzer output keys → state dotted paths ──────────────────────
 FIELD_PATH_MAP: dict[str, str] = {
     # Phase 0
@@ -137,7 +148,12 @@ class Orchestrator:
 
         # ── 1. Analyze ──────────────────────────────────────────────
         analyzer_skill = self.skill_loader.load(phase["skills"]["analyzer"])
-        extracted = self.analyzer.run(user_message, analyzer_skill, state)
+        extracted = self.analyzer.run(
+            user_message,
+            analyzer_skill,
+            state,
+            images=_user_images_from_history(history),
+        )
         log.info("Phase %d extracted: %s", state.current_phase, extracted)
 
         # ── 2. Validate & merge ─────────────────────────────────────
@@ -229,6 +245,11 @@ class Orchestrator:
         )
         response = self._safety_check(response)
         state.plan_generated = True
+        # Move to follow-up immediately so the plan step reads as complete in UI/state
+        # (otherwise current_phase stayed 4 until the next user message).
+        if state.current_phase == 4:
+            state.current_phase = 5
+            state.phase_turns = 0
 
         artifacts = self._check_artifacts(state)
         return response, state, artifacts

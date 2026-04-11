@@ -7,7 +7,7 @@ import json
 import logging
 import re
 
-from llm_backend import ChatBackend
+from llm_backend import ChatBackend, multimodal_user_message
 from state import ChatbotState
 
 log = logging.getLogger(__name__)
@@ -62,10 +62,11 @@ class Analyzer:
         user_message: str,
         skill_prompt: str,
         state: ChatbotState,
+        images: list[tuple[bytes, str]] | None = None,
     ) -> dict:
         state_summary = json.dumps(state.model_dump(), default=str, indent=2)
 
-        messages: list[dict[str, str]] = [
+        messages: list[dict] = [
             {"role": "system", "content": skill_prompt},
             {
                 "role": "system",
@@ -76,11 +77,22 @@ class Analyzer:
                     "No markdown, no explanation, no extra text. "
                     "Use dotted keys for nested fields (e.g. \"budget.fixed_expenses\"). "
                     "Omit fields you cannot confidently extract. "
+                    "If the user attached images (receipts, statements, screenshots), "
+                    "read numbers and text from them when confident. "
                     "Example: {\"consent_acknowledged\": true, \"output_preference\": \"chat\"}"
                 ),
             },
-            {"role": "user", "content": user_message},
         ]
+        if images:
+            messages.append(
+                multimodal_user_message(
+                    user_message
+                    or "Extract structured fields from the attached image(s) per your instructions.",
+                    images,
+                )
+            )
+        else:
+            messages.append({"role": "user", "content": user_message})
 
         try:
             raw_text = self._backend.complete(

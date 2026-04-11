@@ -3,10 +3,14 @@ Unified chat completion for OpenAI-compatible APIs vs Google Gemini (google-gena
 
 Set GEMINI_API_KEY (or GOOGLE_API_KEY) to use Gemini + Gemma models.
 Otherwise use OpenAI SDK with OPENAI_API_KEY and optional OPENAI_BASE_URL.
+
+Multimodal: user turns may use structured "content" (text + optional images).
+See message_content helpers below.
 """
 
 from __future__ import annotations
 
+import base64
 import logging
 import os
 from typing import Any, Protocol
@@ -28,11 +32,41 @@ def resolve_model() -> str:
     return os.getenv("LLM_MODEL", DEFAULT_OLLAMA_GEMMA4_TAG)
 
 
+def text_user_message(text: str) -> dict[str, Any]:
+    """Plain-text user message (backward compatible)."""
+    return {"role": "user", "content": text}
+
+
+def multimodal_user_message(text: str, images: list[tuple[bytes, str]]) -> dict[str, Any]:
+    """
+    User message with images. Each image is (raw_bytes, mime_type), e.g. ("image/png").
+    """
+    parts: list[dict[str, Any]] = [{"type": "text", "text": text or "(see attached image)"}]
+    for data, mime_type in images:
+        parts.append({"type": "image", "mime_type": mime_type, "data": data})
+    return {"role": "user", "content": parts}
+
+
+def message_from_history_entry(entry: dict[str, Any]) -> dict[str, Any]:
+    """Map a stored chat dict (role, content, optional images) to an LLM message."""
+    role = entry.get("role", "user")
+    content = entry.get("content", "")
+    images = entry.get("images") or []
+    if role == "user" and images:
+        raw_images: list[tuple[bytes, str]] = []
+        for im in images:
+            if isinstance(im, dict) and "data" in im and "mime_type" in im:
+                raw_images.append((im["data"], im["mime_type"]))
+        if raw_images:
+            return multimodal_user_message(str(content), raw_images)
+    return {"role": role, "content": content}
+
+
 class ChatBackend(Protocol):
     def complete(
         self,
         *,
-        messages: list[dict[str, str]],
+        messages: list[dict[str, Any]],
         max_tokens: int,
         temperature: float,
     ) -> str: ...
@@ -45,19 +79,48 @@ class OpenAIChatBackend:
     def complete(
         self,
         *,
-        messages: list[dict[str, str]],
+        messages: list[dict[str, Any]],
         max_tokens: int,
         temperature: float,
     ) -> str:
         model = resolve_model()
+        oa_messages = [_to_openai_message(m) for m in messages]
         resp = self._client.chat.completions.create(
             model=model,
-            messages=messages,
+            messages=oa_messages,
             temperature=temperature,
             max_tokens=max_tokens,
         )
         content = resp.choices[0].message.content
         return (content or "").strip()
+
+
+def _to_openai_message(m: dict[str, Any]) -> dict[str, Any]:
+    role = m.get("role", "user")
+    content = m.get("content", "")
+    if isinstance(content, str):
+        return {"role": role, "content": content}
+    parts_out: list[dict[str, Any]] = []
+    for block in content:
+        if not isinstance(block, dict):
+            continue
+        if block.get("type") == "text":
+            parts_out.append({"type": "text", "text": block.get("text", "")})
+        elif block.get("type") == "image":
+            mime = block.get("mime_type") or "image/png"
+            data = block.get("data")
+            if not isinstance(data, (bytes, bytearray)):
+                continue
+            b64 = base64.standard_b64encode(bytes(data)).decode("ascii")
+            parts_out.append(
+                {
+                    "type": "image_url",
+                    "image_url": {"url": f"data:{mime};base64,{b64}"},
+                }
+            )
+    if not parts_out:
+        return {"role": role, "content": ""}
+    return {"role": role, "content": parts_out}
 
 
 class GeminiChatBackend:
@@ -67,7 +130,7 @@ class GeminiChatBackend:
     def complete(
         self,
         *,
-        messages: list[dict[str, str]],
+        messages: list[dict[str, Any]],
         max_tokens: int,
         temperature: float,
     ) -> str:
@@ -80,13 +143,15 @@ class GeminiChatBackend:
         for m in messages:
             role, content = m.get("role", ""), m.get("content", "")
             if role == "system":
-                system_chunks.append(content)
+                if isinstance(content, str):
+                    system_chunks.append(content)
                 continue
             gemini_role = "model" if role == "assistant" else "user"
+            parts = _gemini_parts_from_content(content)
             contents.append(
                 types.Content(
                     role=gemini_role,
-                    parts=[types.Part(text=content)],
+                    parts=parts,
                 )
             )
 
@@ -100,7 +165,6 @@ class GeminiChatBackend:
         config = types.GenerateContentConfig(**cfg_kw)
 
         if not contents:
-            # Opening turn can be system-only (e.g. Phase 0 welcome); Gemini needs a user turn.
             contents = [
                 types.Content(
                     role="user",
@@ -118,7 +182,6 @@ class GeminiChatBackend:
         if text:
             return text.strip()
 
-        # Fallback if .text is empty (e.g. safety / structure)
         try:
             cand = response.candidates[0]
             parts = cand.content.parts
@@ -130,3 +193,25 @@ class GeminiChatBackend:
         except (IndexError, AttributeError, TypeError) as exc:
             log.warning("Gemini empty or unparsable response: %s", exc)
             return ""
+
+
+def _gemini_parts_from_content(content: Any) -> list[Any]:
+    from google.genai import types
+
+    if isinstance(content, str):
+        return [types.Part(text=content)]
+
+    parts: list[Any] = []
+    for block in content:
+        if not isinstance(block, dict):
+            continue
+        if block.get("type") == "text":
+            parts.append(types.Part(text=block.get("text", "") or " "))
+        elif block.get("type") == "image":
+            data = block.get("data")
+            mime = block.get("mime_type") or "image/png"
+            if isinstance(data, (bytes, bytearray)):
+                parts.append(types.Part.from_bytes(data=bytes(data), mime_type=mime))
+    if not parts:
+        return [types.Part(text=" ")]
+    return parts
