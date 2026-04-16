@@ -45,7 +45,13 @@ from secrets_util import apply_streamlit_secrets_to_environ
 apply_streamlit_secrets_to_environ(st)
 
 # Trim accidental spaces from .env / secrets values (e.g. KEY= mykey).
-for _env_name in ("NVIDIA_API_KEY", "GEMINI_API_KEY", "GOOGLE_API_KEY", "OPENAI_API_KEY"):
+for _env_name in (
+    "NVIDIA_API_KEY",
+    "GEMINI_API_KEY",
+    "GOOGLE_API_KEY",
+    "OPENAI_API_KEY",
+    "LLM_PROVIDER",
+):
     _v = os.getenv(_env_name)
     if _v is not None:
         os.environ[_env_name] = _v.strip()
