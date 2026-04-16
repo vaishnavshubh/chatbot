@@ -26,11 +26,31 @@ DEFAULT_GEMINI_MODEL = "gemini-2.5-flash"
 DEFAULT_OLLAMA_GEMMA4_TAG = "gemma4:latest"
 
 
+def _forced_provider() -> str | None:
+    """
+    Optional override for provider routing.
+    Supported values: auto, nvidia, gemini, openai
+    """
+    raw = (os.getenv("LLM_PROVIDER") or "").strip().lower()
+    if raw in ("", "auto"):
+        return None
+    if raw in ("nvidia", "gemini", "openai"):
+        return raw
+    log.warning("Unknown LLM_PROVIDER=%r; falling back to automatic provider selection.", raw)
+    return None
+
+
 def use_nvidia() -> bool:
+    forced = _forced_provider()
+    if forced and forced != "nvidia":
+        return False
     return bool(os.getenv("NVIDIA_API_KEY"))
 
 
 def use_gemini() -> bool:
+    forced = _forced_provider()
+    if forced and forced != "gemini":
+        return False
     return not use_nvidia() and bool(
         os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
     )
@@ -39,6 +59,16 @@ def use_gemini() -> bool:
 def resolve_model() -> str:
     explicit = os.getenv("LLM_MODEL")
     if explicit:
+        # NVIDIA NIM model ids are repository-like (e.g. "meta/llama-3.3-70b-instruct").
+        # If an Ollama-style tag is supplied while NVIDIA is selected, fall back safely.
+        if use_nvidia() and ":" in explicit and "/" not in explicit:
+            log.warning(
+                "LLM_MODEL=%r looks like an Ollama tag but NVIDIA provider is active; "
+                "falling back to %r.",
+                explicit,
+                DEFAULT_NVIDIA_MODEL,
+            )
+            return DEFAULT_NVIDIA_MODEL
         return explicit
     if use_nvidia():
         return DEFAULT_NVIDIA_MODEL
