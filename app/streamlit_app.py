@@ -45,14 +45,20 @@ from secrets_util import apply_streamlit_secrets_to_environ
 apply_streamlit_secrets_to_environ(st)
 
 # Trim accidental spaces from .env / secrets values (e.g. KEY= mykey).
-for _env_name in ("GEMINI_API_KEY", "GOOGLE_API_KEY", "OPENAI_API_KEY"):
+for _env_name in ("NVIDIA_API_KEY", "GEMINI_API_KEY", "GOOGLE_API_KEY", "OPENAI_API_KEY"):
     _v = os.getenv(_env_name)
     if _v is not None:
         os.environ[_env_name] = _v.strip()
 
 from openai import OpenAI
 
-from llm_backend import GeminiChatBackend, OpenAIChatBackend, use_gemini
+from llm_backend import (
+    GeminiChatBackend,
+    OpenAIChatBackend,
+    NVIDIA_BASE_URL,
+    use_gemini,
+    use_nvidia,
+)
 from state import ChatbotState
 from phase_registry import PhaseRegistry
 from analyzer import Analyzer
@@ -297,7 +303,23 @@ st.set_page_config(
 # ── Cached resources (created once per server lifetime) ─────────────────
 @st.cache_resource
 def _build_llm_backend():
-    """Gemini API (GEMINI_API_KEY) or OpenAI-compatible API (OPENAI_API_KEY)."""
+    """NVIDIA NIM, Gemini API, or generic OpenAI-compatible backend."""
+
+    # --- NVIDIA NIM (highest priority) ---
+    if use_nvidia():
+        key = os.getenv("NVIDIA_API_KEY", "")
+        if not key:
+            st.error(
+                "**NVIDIA_API_KEY not found.**  \n"
+                "Locally: set it in `.env` (see `.env.example`).  \n"
+                "On **Streamlit Community Cloud**: App settings → Secrets → add `NVIDIA_API_KEY`.  \n"
+                "Key: https://build.nvidia.com/ → API Catalog → Get API Key."
+            )
+            st.stop()
+        oa = OpenAI(api_key=key, base_url=NVIDIA_BASE_URL)
+        return OpenAIChatBackend(oa)
+
+    # --- Google Gemini ---
     if use_gemini():
         from google import genai
 
@@ -313,13 +335,14 @@ def _build_llm_backend():
         client = genai.Client(api_key=key)
         return GeminiChatBackend(client)
 
+    # --- OpenAI / Ollama / any compatible endpoint ---
     api_key = os.getenv("OPENAI_API_KEY", "")
     if not api_key:
         st.error(
-            "**OPENAI_API_KEY not found.**  \n"
-            "Locally: add `OPENAI_API_KEY` to `.env` (see `.env.example`).  \n"
-            "On **Streamlit Community Cloud**: App settings → Secrets → add `OPENAI_API_KEY` (and optional `OPENAI_BASE_URL`).  \n"
-            "Or set **GEMINI_API_KEY** to use Google Gemini / Gemma instead."
+            "**No LLM API key found.**  \n"
+            "Set one of: `NVIDIA_API_KEY`, `GEMINI_API_KEY`, or `OPENAI_API_KEY` in `.env` "
+            "(see `.env.example`).  \n"
+            "On **Streamlit Community Cloud**: App settings → Secrets."
         )
         st.stop()
     base_url = os.getenv("OPENAI_BASE_URL", None)
@@ -513,8 +536,8 @@ def main():
         key=f"chat_images_{st.session_state.upload_nonce}",
     )
     st.caption(
-        "Vision: use a multimodal model (hosted Gemma 4 on the Gemini API, GPT-4o, etc.). "
-        "Text-only models will fail when images are attached."
+        "Vision requires a multimodal model (Gemini, GPT-4o, etc.). "
+        "Text-only models (NVIDIA NIM, Ollama) will ignore or fail on attached images."
     )
 
     # Render chat history

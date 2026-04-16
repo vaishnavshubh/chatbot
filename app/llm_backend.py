@@ -1,8 +1,10 @@
 """
 Unified chat completion for OpenAI-compatible APIs vs Google Gemini (google-genai).
 
-Set GEMINI_API_KEY (or GOOGLE_API_KEY) to use the Gemini API (default: gemini-2.5-flash).
-Otherwise use OpenAI SDK with OPENAI_API_KEY and optional OPENAI_BASE_URL.
+Provider priority:
+  1. NVIDIA_API_KEY → NVIDIA NIM (OpenAI-compatible, default: meta/llama-3.3-70b-instruct)
+  2. GEMINI_API_KEY / GOOGLE_API_KEY → Gemini API (default: gemini-2.5-flash)
+  3. OPENAI_API_KEY (+ optional OPENAI_BASE_URL) → OpenAI / Ollama / any compatible API
 
 Multimodal: user turns may use structured "content" (text + optional images).
 See message_content helpers below.
@@ -17,19 +19,32 @@ from typing import Any, Protocol
 
 log = logging.getLogger(__name__)
 
-# Project defaults: Gemini 2.5 Flash for speed; Ollama tag for local fallback.
+# Provider defaults
+DEFAULT_NVIDIA_MODEL = "meta/llama-3.3-70b-instruct"
+NVIDIA_BASE_URL = "https://integrate.api.nvidia.com/v1"
 DEFAULT_GEMINI_MODEL = "gemini-2.5-flash"
 DEFAULT_OLLAMA_GEMMA4_TAG = "gemma4:latest"
 
 
+def use_nvidia() -> bool:
+    return bool(os.getenv("NVIDIA_API_KEY"))
+
+
 def use_gemini() -> bool:
-    return bool(os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY"))
+    return not use_nvidia() and bool(
+        os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+    )
 
 
 def resolve_model() -> str:
+    explicit = os.getenv("LLM_MODEL")
+    if explicit:
+        return explicit
+    if use_nvidia():
+        return DEFAULT_NVIDIA_MODEL
     if use_gemini():
-        return os.getenv("LLM_MODEL", DEFAULT_GEMINI_MODEL)
-    return os.getenv("LLM_MODEL", DEFAULT_OLLAMA_GEMMA4_TAG)
+        return DEFAULT_GEMINI_MODEL
+    return DEFAULT_OLLAMA_GEMMA4_TAG
 
 
 def text_user_message(text: str) -> dict[str, Any]:
