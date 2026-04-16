@@ -1,7 +1,7 @@
 """
 Unified chat completion for OpenAI-compatible APIs vs Google Gemini (google-genai).
 
-Set GEMINI_API_KEY (or GOOGLE_API_KEY) to use Gemini + Gemma models.
+Set GEMINI_API_KEY (or GOOGLE_API_KEY) to use the Gemini API (default: gemini-2.5-flash).
 Otherwise use OpenAI SDK with OPENAI_API_KEY and optional OPENAI_BASE_URL.
 
 Multimodal: user turns may use structured "content" (text + optional images).
@@ -17,8 +17,8 @@ from typing import Any, Protocol
 
 log = logging.getLogger(__name__)
 
-# Project defaults: Gemma 4 everywhere (hosted via Gemini API, or local via Ollama tag).
-DEFAULT_GEMINI_GEMMA4_MODEL = "gemma-4-26b-a4b-it"
+# Project defaults: Gemini 2.5 Flash for speed; Ollama tag for local fallback.
+DEFAULT_GEMINI_MODEL = "gemini-2.5-flash"
 DEFAULT_OLLAMA_GEMMA4_TAG = "gemma4:latest"
 
 
@@ -28,7 +28,7 @@ def use_gemini() -> bool:
 
 def resolve_model() -> str:
     if use_gemini():
-        return os.getenv("LLM_MODEL", DEFAULT_GEMINI_GEMMA4_MODEL)
+        return os.getenv("LLM_MODEL", DEFAULT_GEMINI_MODEL)
     return os.getenv("LLM_MODEL", DEFAULT_OLLAMA_GEMMA4_TAG)
 
 
