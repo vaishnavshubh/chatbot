@@ -30,6 +30,27 @@ def _user_images_from_history(history: list[dict]) -> list[tuple[bytes, str]] | 
             raw.append((im["data"], im["mime_type"]))
     return raw or None
 
+
+def _infer_time_horizon_from_request(
+    user_message: str, has_images: bool
+) -> str | None:
+    """
+    Heuristic fallback for Phase 2:
+    if a user asks for concrete help now (often with uploaded evidence),
+    assume short-term unless they clearly specify medium/long horizon.
+    """
+    text = (user_message or "").lower()
+    if re.search(r"\b(long[- ]?term|in a few years|retirement)\b", text):
+        return "long_term"
+    if re.search(r"\b(next year|year or two|12 months|18 months|24 months)\b", text):
+        return "medium_term"
+    if has_images or re.search(
+        r"\b(now|today|asap|this month|next few months|current|details|statement)\b",
+        text,
+    ):
+        return "short_term"
+    return None
+
 # ── Map analyzer output keys → state dotted paths ──────────────────────
 FIELD_PATH_MAP: dict[str, str] = {
     # Phase 0
@@ -148,30 +169,32 @@ class Orchestrator:
 
         # ── 1. Analyze ──────────────────────────────────────────────
         analyzer_skill = self.skill_loader.load(phase["skills"]["analyzer"])
+        user_images = _user_images_from_history(history)
         extracted = self.analyzer.run(
             user_message,
             analyzer_skill,
             state,
-            images=_user_images_from_history(history),
+            images=user_images,
         )
         log.info("Phase %d extracted: %s", state.current_phase, extracted)
 
         # ── 2. Validate & merge ─────────────────────────────────────
-        for key, value in extracted.items():
-            if key in _CONTROL_KEYS:
-                if key == "skip_evidence" and value:
-                    state.evidence_skipped = True
-                continue
+        self._merge_extracted(state, extracted)
 
-            field_path = FIELD_PATH_MAP.get(key)
-            if field_path is None:
-                log.debug("Unknown extracted key: %s", key)
-                continue
-
-            if is_valid(field_path, value):
-                set_field(state, field_path, value)
-            else:
-                log.debug("Rejected %s = %r", field_path, value)
+        # Phase 2 fallback: infer time horizon from urgent/evidence-based asks
+        # so users can move forward without getting stuck in topic selection.
+        if (
+            state.current_phase == 2
+            and state.goal.primary_goal is not None
+            and state.goal.time_horizon is None
+        ):
+            inferred = _infer_time_horizon_from_request(
+                user_message=user_message,
+                has_images=bool(user_images),
+            )
+            if inferred:
+                state.goal.time_horizon = inferred
+                log.info("Phase 2 inferred time_horizon=%s", inferred)
 
         # ── 3. Increment turn counter ───────────────────────────────
         state.phase_turns += 1
@@ -185,10 +208,29 @@ class Orchestrator:
         if state.current_phase < 5:
             can = self.registry.can_advance(state.current_phase, state)
             if can or force_advance:
+                from_phase = state.current_phase
                 state.current_phase += 1
                 state.phase_turns = 0
                 advanced = True
                 phase = self.registry.get_phase(state.current_phase)
+
+                # If the user uploaded evidence while selecting a goal,
+                # immediately run Phase 3 extraction on the same turn.
+                if (
+                    from_phase == 2
+                    and state.current_phase == 3
+                    and user_images
+                ):
+                    p3 = self.registry.get_phase(3)
+                    p3_skill = self.skill_loader.load(p3["skills"]["analyzer"])
+                    extracted_p3 = self.analyzer.run(
+                        user_message,
+                        p3_skill,
+                        state,
+                        images=user_images,
+                    )
+                    log.info("Phase 3 extracted (same turn): %s", extracted_p3)
+                    self._merge_extracted(state, extracted_p3)
 
         # ── 6. Phase 4 auto-generation ──────────────────────────────
         if state.current_phase == 4 and not state.plan_generated:
@@ -299,3 +341,21 @@ class Orchestrator:
     @staticmethod
     def _check_artifacts(_state: ChatbotState) -> dict:
         return {}
+
+    @staticmethod
+    def _merge_extracted(state: ChatbotState, extracted: dict[str, Any]) -> None:
+        for key, value in extracted.items():
+            if key in _CONTROL_KEYS:
+                if key == "skip_evidence" and value:
+                    state.evidence_skipped = True
+                continue
+
+            field_path = FIELD_PATH_MAP.get(key)
+            if field_path is None:
+                log.debug("Unknown extracted key: %s", key)
+                continue
+
+            if is_valid(field_path, value):
+                set_field(state, field_path, value)
+            else:
+                log.debug("Rejected %s = %r", field_path, value)

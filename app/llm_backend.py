@@ -99,7 +99,9 @@ class OpenAIChatBackend:
         temperature: float,
     ) -> str:
         model = resolve_model()
-        oa_messages = [_to_openai_message(m) for m in messages]
+        oa_messages = _normalize_openai_messages(
+            [_to_openai_message(m) for m in messages]
+        )
         resp = self._client.chat.completions.create(
             model=model,
             messages=oa_messages,
@@ -136,6 +138,66 @@ def _to_openai_message(m: dict[str, Any]) -> dict[str, Any]:
     if not parts_out:
         return {"role": role, "content": ""}
     return {"role": role, "content": parts_out}
+
+
+def _msg_text(content: Any) -> str:
+    """Extract plain text from a message content field (string or parts list)."""
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        return " ".join(
+            p.get("text", "") for p in content if isinstance(p, dict) and p.get("type") == "text"
+        )
+    return str(content)
+
+
+def _normalize_openai_messages(
+    messages: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Merge system messages and enforce strict user/assistant alternation.
+
+    Models like Gemma 3 on NVIDIA NIM reject conversations where roles don't
+    strictly alternate.  This function:
+      1. Collects all system messages into a single leading system message.
+      2. Merges consecutive same-role turns.
+      3. If the conversation has no user turn, injects a placeholder so the
+         model has something to respond to.
+    """
+    system_parts: list[str] = []
+    conv: list[dict[str, Any]] = []
+
+    for m in messages:
+        role = m.get("role", "user")
+        if role == "system":
+            system_parts.append(_msg_text(m.get("content", "")))
+            continue
+        if conv and conv[-1]["role"] == role:
+            prev_content = conv[-1]["content"]
+            cur_content = m.get("content", "")
+            if isinstance(prev_content, str) and isinstance(cur_content, str):
+                conv[-1]["content"] = prev_content + "\n\n" + cur_content
+            else:
+                conv[-1]["content"] = (
+                    _msg_text(prev_content) + "\n\n" + _msg_text(cur_content)
+                )
+        else:
+            conv.append(dict(m))
+
+    # NVIDIA-hosted Gemma models expect the first conversational turn to be user.
+    # History windows can start with assistant if older user turns were truncated.
+    while conv and conv[0].get("role") == "assistant":
+        conv.pop(0)
+
+    out: list[dict[str, Any]] = []
+    if system_parts:
+        out.append({"role": "system", "content": "\n\n".join(system_parts)})
+
+    if not conv:
+        out.append({"role": "user", "content": "(Begin the conversation as instructed.)"})
+    else:
+        out.extend(conv)
+
+    return out
 
 
 class GeminiChatBackend:
