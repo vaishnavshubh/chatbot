@@ -379,11 +379,17 @@ def _build_rag_retriever():
         return None
     backend = (os.getenv("RAG_BACKEND") or "jsonl").strip().lower()
     if backend == "vector":
-        from rag.retrieval_vector import RAGVectorRetriever
+        try:
+            from rag.retrieval_vector import RAGVectorRetriever
 
-        vector_dir = PROJECT_ROOT / "data" / "rag_vector"
-        collection = (os.getenv("RAG_VECTOR_COLLECTION") or "finlit_hard_rules").strip()
-        return RAGVectorRetriever(vector_dir, collection_name=collection)
+            vector_dir = PROJECT_ROOT / "data" / "rag_vector"
+            collection = (os.getenv("RAG_VECTOR_COLLECTION") or "finlit_hard_rules").strip()
+            return RAGVectorRetriever(vector_dir, collection_name=collection)
+        except Exception as exc:
+            logging.getLogger(__name__).warning(
+                "RAG_BACKEND=vector failed (%s); falling back to jsonl chunks.",
+                exc,
+            )
 
     from rag.retrieval import RAGRetriever
 

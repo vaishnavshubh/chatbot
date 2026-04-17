@@ -13,8 +13,6 @@ import re
 from pathlib import Path
 from typing import Any
 
-import chromadb
-
 from rag.rag_settings import effective_vector_n_candidates
 from rag.retrieval import GOAL_KEYWORDS
 
@@ -45,6 +43,8 @@ class RAGVectorRetriever:
             log.warning("RAG vector directory not found: %s", persist_dir)
             return
         try:
+            import chromadb
+
             client = chromadb.PersistentClient(path=str(persist_dir))
             self._collection = client.get_collection(name=collection_name)
             self._enabled = self._collection.count() > 0
