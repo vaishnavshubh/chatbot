@@ -305,8 +305,9 @@ class Orchestrator:
             return None
         try:
             from rag.prompts import format_rag_message
+            from rag.rag_settings import effective_rag_top_k
 
-            k = int(os.getenv("RAG_TOP_K", "5"))
+            k = effective_rag_top_k()
             chunks = rr.retrieve_for_state(state, k=k)
             return format_rag_message(chunks) or None
         except Exception as exc:

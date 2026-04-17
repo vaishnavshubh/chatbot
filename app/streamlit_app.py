@@ -51,6 +51,12 @@ for _env_name in (
     "GOOGLE_API_KEY",
     "OPENAI_API_KEY",
     "LLM_PROVIDER",
+    "RAG_PROFILE",
+    "RAG_TOP_K",
+    "RAG_MAX_CHUNKS_IN_PROMPT",
+    "RAG_MAX_CHARS_PER_CHUNK",
+    "RAG_BACKEND",
+    "RAG_VECTOR_COLLECTION",
 ):
     _v = os.getenv(_env_name)
     if _v is not None:
@@ -371,6 +377,14 @@ def _build_rag_retriever():
     """Keyword RAG over data/rag_index/chunks.jsonl (see Rag_implementation.md)."""
     if os.getenv("RAG_ENABLED", "1").lower() not in ("1", "true", "yes"):
         return None
+    backend = (os.getenv("RAG_BACKEND") or "jsonl").strip().lower()
+    if backend == "vector":
+        from rag.retrieval_vector import RAGVectorRetriever
+
+        vector_dir = PROJECT_ROOT / "data" / "rag_vector"
+        collection = (os.getenv("RAG_VECTOR_COLLECTION") or "finlit_hard_rules").strip()
+        return RAGVectorRetriever(vector_dir, collection_name=collection)
+
     from rag.retrieval import RAGRetriever
 
     path = PROJECT_ROOT / "data" / "rag_index" / "chunks.jsonl"
@@ -490,11 +504,18 @@ def _render_sidebar():
     else:
         rr = _build_rag_retriever()
         if rr is not None and getattr(rr, "enabled", False):
-            sb.caption("RAG: on (Phase 4 plan uses curated excerpts)")
+            backend = (os.getenv("RAG_BACKEND") or "jsonl").strip().lower()
+            sb.caption(f"RAG: on ({backend} backend; Phase 4 plan uses curated excerpts)")
         else:
-            sb.caption(
-                "RAG: index missing — run `python app/rag/ingest.py` from project root"
-            )
+            backend = (os.getenv("RAG_BACKEND") or "jsonl").strip().lower()
+            if backend == "vector":
+                sb.caption(
+                    "RAG: vector index missing — run `python app/rag/ingest_pdf_vector.py` from project root"
+                )
+            else:
+                sb.caption(
+                    "RAG: index missing — run `python app/rag/ingest.py` from project root"
+                )
 
     if state.selected_next_action:
         sb.divider()
