@@ -510,8 +510,7 @@ def _render_sidebar():
     else:
         rr = _build_rag_retriever()
         if rr is not None and getattr(rr, "enabled", False):
-            backend = (os.getenv("RAG_BACKEND") or "jsonl").strip().lower()
-            sb.caption(f"RAG: on ({backend} backend; Phase 4 plan uses curated excerpts)")
+            pass
         else:
             backend = (os.getenv("RAG_BACKEND") or "jsonl").strip().lower()
             if backend == "vector":
