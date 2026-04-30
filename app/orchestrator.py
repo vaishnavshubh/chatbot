@@ -9,6 +9,7 @@ import logging
 import os
 import re
 from pathlib import Path
+from collections.abc import Iterator
 from typing import Any
 
 from state import ChatbotState, get_field, set_field
@@ -157,6 +158,28 @@ class Orchestrator:
         )
         return self.speaker.run(skill, payload)
 
+    def generate_opening_stream(
+        self,
+        state: ChatbotState,
+        out: dict | None = None,
+    ) -> Iterator[str]:
+        """Stream the Phase 0 welcome message; optional ``out`` receives safety-checked text."""
+        phase = self.registry.get_phase(0)
+        skill = self.skill_loader.load(phase["skills"]["speaker"])
+        missing = self.registry.get_missing_fields(0, state)
+        payload = self._build_payload(phase, state, missing)
+        payload["instruction"] = (
+            "This is the very start of a new conversation. "
+            "Deliver the full welcome message as described in your Behavior Rules."
+        )
+        parts: list[str] = []
+        for chunk in self.speaker.run_stream(skill, payload):
+            parts.append(chunk)
+            yield chunk
+        response = self._safety_check("".join(parts))
+        if out is not None:
+            out["response"] = response
+
     def handle_message(
         self,
         user_message: str,
@@ -254,7 +277,146 @@ class Orchestrator:
 
         return response, state, artifacts
 
+    def handle_message_stream(
+        self,
+        user_message: str,
+        state: ChatbotState,
+        history: list[dict],
+        out: dict | None = None,
+    ) -> Iterator[str]:
+        """
+        Same pipeline as ``handle_message``, but stream the assistant reply token-by-token.
+
+        When iteration finishes, ``out`` (if provided) is filled with
+        ``response`` (safety-checked full text) and ``artifacts``.
+        """
+        phase = self.registry.get_phase(state.current_phase)
+
+        analyzer_skill = self.skill_loader.load(phase["skills"]["analyzer"])
+        user_images = _user_images_from_history(history)
+        extracted = self.analyzer.run(
+            user_message,
+            analyzer_skill,
+            state,
+            images=user_images,
+        )
+        log.info("Phase %d extracted: %s", state.current_phase, extracted)
+
+        self._merge_extracted(state, extracted)
+
+        if (
+            state.current_phase == 2
+            and state.goal.primary_goal is not None
+            and state.goal.time_horizon is None
+        ):
+            inferred = _infer_time_horizon_from_request(
+                user_message=user_message,
+                has_images=bool(user_images),
+            )
+            if inferred:
+                state.goal.time_horizon = inferred
+                log.info("Phase 2 inferred time_horizon=%s", inferred)
+
+        state.phase_turns += 1
+
+        max_turns = phase.get("max_turns", 10)
+        force_advance = state.phase_turns > max_turns
+
+        if state.current_phase < 5:
+            can = self.registry.can_advance(state.current_phase, state)
+            if can or force_advance:
+                from_phase = state.current_phase
+                state.current_phase += 1
+                state.phase_turns = 0
+                phase = self.registry.get_phase(state.current_phase)
+
+                if (
+                    from_phase == 2
+                    and state.current_phase == 3
+                    and user_images
+                ):
+                    p3 = self.registry.get_phase(3)
+                    p3_skill = self.skill_loader.load(p3["skills"]["analyzer"])
+                    extracted_p3 = self.analyzer.run(
+                        user_message,
+                        p3_skill,
+                        state,
+                        images=user_images,
+                    )
+                    log.info("Phase 3 extracted (same turn): %s", extracted_p3)
+                    self._merge_extracted(state, extracted_p3)
+
+        if state.current_phase == 4 and not state.plan_generated:
+            yield from self._stream_generate_plan(state, phase, history, out)
+            return
+
+        missing = self.registry.get_missing_fields(state.current_phase, state)
+        payload = self._build_payload(phase, state, missing)
+        speaker_skill = self.skill_loader.load(phase["skills"]["speaker"])
+        rag_context = self._build_rag_context(state) if state.current_phase == 3 else None
+
+        parts: list[str] = []
+        for chunk in self.speaker.run_stream(
+            speaker_skill,
+            payload,
+            history,
+            rag_context=rag_context,
+        ):
+            parts.append(chunk)
+            yield chunk
+
+        response = self._safety_check("".join(parts))
+        artifacts = self._check_artifacts(state) if state.plan_generated else {}
+        if out is not None:
+            out["response"] = response
+            out["artifacts"] = artifacts
+
     # ── Private helpers ─────────────────────────────────────────────────
+
+    def _stream_generate_plan(
+        self,
+        state: ChatbotState,
+        phase: dict,
+        history: list[dict],
+        out: dict | None = None,
+    ) -> Iterator[str]:
+        """Stream the Phase 4 plan; updates state like ``_generate_plan``."""
+        speaker_skill = self.skill_loader.load(phase["skills"]["speaker"])
+        payload = self._build_payload(phase, state, [])
+        payload["instruction"] = (
+            "Generate the full educational plan now. "
+            "Include all five sections: Situation Summary, Key Concepts, "
+            "Step-by-Step Checklist, Risks & Pitfalls, and 30-Day Action Plan."
+        )
+        if state.evidence_skipped:
+            payload["instruction"] += (
+                " Evidence was skipped — note that the plan is general "
+                "and would benefit from revisiting with actual numbers."
+            )
+
+        rag_context = self._build_rag_context(state)
+
+        parts: list[str] = []
+        for chunk in self.speaker.run_stream(
+            speaker_skill,
+            payload,
+            history,
+            max_tokens=4000,
+            rag_context=rag_context,
+        ):
+            parts.append(chunk)
+            yield chunk
+
+        response = self._safety_check("".join(parts))
+        state.plan_generated = True
+        if state.current_phase == 4:
+            state.current_phase = 5
+            state.phase_turns = 0
+
+        artifacts = self._check_artifacts(state)
+        if out is not None:
+            out["response"] = response
+            out["artifacts"] = artifacts
 
     def _generate_plan(
         self,
