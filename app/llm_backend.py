@@ -17,6 +17,8 @@ import logging
 import os
 from typing import Any, Protocol
 
+from langsmith import traceable
+
 log = logging.getLogger(__name__)
 
 # Provider defaults
@@ -234,6 +236,7 @@ class GeminiChatBackend:
     def __init__(self, client: Any):
         self._client = client
 
+    @traceable(name="gemini_chat_completion", run_type="llm")
     def complete(
         self,
         *,

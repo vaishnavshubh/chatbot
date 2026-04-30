@@ -57,12 +57,20 @@ for _env_name in (
     "RAG_MAX_CHARS_PER_CHUNK",
     "RAG_BACKEND",
     "RAG_VECTOR_COLLECTION",
+    "LANGSMITH_API_KEY",
+    "LANGSMITH_PROJECT",
+    "LANGCHAIN_API_KEY",
+    "LANGCHAIN_PROJECT",
+    "LANGSMITH_TRACING",
+    "LANGCHAIN_TRACING_V2",
 ):
     _v = os.getenv(_env_name)
     if _v is not None:
         os.environ[_env_name] = _v.strip()
 
 from openai import OpenAI
+
+from langsmith_tracing import wrap_openai_for_tracing
 
 from llm_backend import (
     GeminiChatBackend,
@@ -329,6 +337,7 @@ def _build_llm_backend():
             )
             st.stop()
         oa = OpenAI(api_key=key, base_url=NVIDIA_BASE_URL)
+        oa = wrap_openai_for_tracing(oa)
         return OpenAIChatBackend(oa)
 
     # --- Google Gemini ---
@@ -359,6 +368,7 @@ def _build_llm_backend():
         st.stop()
     base_url = os.getenv("OPENAI_BASE_URL", None)
     oa = OpenAI(api_key=api_key, base_url=base_url) if base_url else OpenAI(api_key=api_key)
+    oa = wrap_openai_for_tracing(oa)
     return OpenAIChatBackend(oa)
 
 
