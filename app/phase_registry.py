@@ -6,6 +6,8 @@ and advancement logic.
 import json
 from pathlib import Path
 
+from langsmith import traceable
+
 from state import ChatbotState, get_field
 
 
@@ -18,6 +20,7 @@ class PhaseRegistry:
     def get_phase(self, phase_id: int) -> dict:
         return self.phases[phase_id]
 
+    @traceable(name="phase_registry_missing_fields", run_type="chain")
     def get_missing_fields(self, phase_id: int, state: ChatbotState) -> list[str]:
         if phase_id == 0:
             missing = []
@@ -55,6 +58,7 @@ class PhaseRegistry:
 
         return []
 
+    @traceable(name="phase_registry_can_advance", run_type="chain")
     def can_advance(self, phase_id: int, state: ChatbotState) -> bool:
         if phase_id == 0:
             return (

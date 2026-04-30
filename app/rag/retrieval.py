@@ -11,6 +11,8 @@ import logging
 import re
 from pathlib import Path
 
+from langsmith import traceable
+
 log = logging.getLogger(__name__)
 
 # Boost retrieval when the user's goal matches chunk topic.
@@ -70,6 +72,7 @@ class RAGRetriever:
         extra = GOAL_KEYWORDS.get(g, "")
         return f"{g.replace('_', ' ')} {extra} educational overview key concepts checklist"
 
+    @traceable(name="rag_jsonl_retrieve", run_type="retriever")
     def retrieve(self, query: str, k: int = 5, topic_filter: str | None = None) -> list[dict]:
         """
         Return top-k chunks using keyword overlap.
@@ -131,6 +134,7 @@ class RAGRetriever:
 
         return out[:k]
 
+    @traceable(name="rag_jsonl_retrieve_for_state", run_type="retriever")
     def retrieve_for_state(self, state, k: int = 5) -> list[dict]:
         """Convenience: use goal from ChatbotState."""
         goal = getattr(getattr(state, "goal", None), "primary_goal", None)

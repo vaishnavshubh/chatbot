@@ -7,6 +7,8 @@ import json
 import logging
 from collections.abc import Iterator
 
+from langsmith import traceable
+
 from llm_backend import ChatBackend, message_from_history_entry
 
 log = logging.getLogger(__name__)
@@ -40,6 +42,7 @@ class Speaker:
                 messages.append(message_from_history_entry(msg))
         return messages
 
+    @traceable(name="speaker_run", run_type="chain")
     def run(
         self,
         skill_prompt: str,
@@ -63,6 +66,7 @@ class Speaker:
                 "Could you try again?"
             )
 
+    @traceable(name="speaker_run_stream", run_type="chain")
     def run_stream(
         self,
         skill_prompt: str,

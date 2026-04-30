@@ -13,6 +13,8 @@ import re
 from pathlib import Path
 from typing import Any
 
+from langsmith import traceable
+
 from rag.rag_settings import effective_vector_n_candidates
 from rag.retrieval import GOAL_KEYWORDS
 
@@ -65,6 +67,7 @@ class RAGVectorRetriever:
         extra = GOAL_KEYWORDS.get(g, "")
         return f"{g.replace('_', ' ')} {extra} legal tax retirement plan rules requirements"
 
+    @traceable(name="rag_vector_retrieve", run_type="retriever")
     def retrieve(self, query: str, k: int = 5, topic_filter: str | None = None) -> list[dict]:
         if not self._collection:
             return []
@@ -126,6 +129,7 @@ class RAGVectorRetriever:
                 break
         return out
 
+    @traceable(name="rag_vector_retrieve_for_state", run_type="retriever")
     def retrieve_for_state(self, state: Any, k: int = 5) -> list[dict]:
         goal = getattr(getattr(state, "goal", None), "primary_goal", None)
         query = self.build_query(goal)

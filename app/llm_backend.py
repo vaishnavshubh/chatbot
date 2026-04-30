@@ -20,6 +20,10 @@ from typing import Any, Protocol
 
 from langsmith import traceable
 
+from langsmith_tracing import ensure_traceable_client_env
+
+ensure_traceable_client_env()
+
 log = logging.getLogger(__name__)
 
 # Provider defaults
@@ -132,6 +136,7 @@ class OpenAIChatBackend:
     def __init__(self, client: Any):
         self._client = client
 
+    @traceable(name="openai_chat_completion", run_type="llm")
     def complete(
         self,
         *,
@@ -152,6 +157,7 @@ class OpenAIChatBackend:
         content = resp.choices[0].message.content
         return (content or "").strip()
 
+    @traceable(name="openai_chat_completion_stream", run_type="llm")
     def stream_complete(
         self,
         *,
@@ -340,6 +346,7 @@ class GeminiChatBackend:
             log.warning("Gemini empty or unparsable response: %s", exc)
             return ""
 
+    @traceable(name="gemini_chat_completion_stream", run_type="llm")
     def stream_complete(
         self,
         *,

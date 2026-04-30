@@ -7,6 +7,8 @@ import json
 import logging
 import re
 
+from langsmith import traceable
+
 from llm_backend import ChatBackend, multimodal_user_message
 from state import ChatbotState
 
@@ -57,6 +59,7 @@ class Analyzer:
     def __init__(self, backend: ChatBackend):
         self._backend = backend
 
+    @traceable(name="analyzer_run", run_type="chain")
     def run(
         self,
         user_message: str,

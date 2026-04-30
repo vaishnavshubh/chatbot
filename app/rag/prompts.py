@@ -2,6 +2,8 @@
 System text for RAG-grounded generation. Deterministic; no LLM calls.
 """
 
+from langsmith import traceable
+
 from rag.rag_settings import (
     effective_max_chars_per_chunk,
     effective_max_chunks_in_prompt,
@@ -33,6 +35,7 @@ def _truncate_excerpt(text: str, max_chars: int) -> str:
     return clean[: max_chars - 15].rstrip() + "\n...[truncated]"
 
 
+@traceable(name="rag_format_message", run_type="tool")
 def format_rag_message(chunks: list[dict]) -> str:
     """Build a single system message string from ranked chunk dicts."""
     if not chunks:

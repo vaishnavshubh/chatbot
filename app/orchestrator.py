@@ -12,6 +12,8 @@ from pathlib import Path
 from collections.abc import Iterator
 from typing import Any
 
+from langsmith import traceable
+
 from state import ChatbotState, get_field, set_field
 from phase_registry import PhaseRegistry
 from analyzer import Analyzer
@@ -124,6 +126,7 @@ class SkillLoader:
     def __init__(self, md_dir: Path):
         self.md_dir = md_dir
 
+    @traceable(name="skill_loader_load", run_type="tool")
     def load(self, skill_path: str) -> str:
         full_path = self.md_dir / skill_path
         return full_path.read_text(encoding="utf-8")
@@ -146,6 +149,7 @@ class Orchestrator:
 
     # ── Public API ──────────────────────────────────────────────────────
 
+    @traceable(name="orchestrator_generate_opening", run_type="chain")
     def generate_opening(self, state: ChatbotState) -> str:
         """Produce the Phase 0 welcome message (no user input yet)."""
         phase = self.registry.get_phase(0)
@@ -158,6 +162,7 @@ class Orchestrator:
         )
         return self.speaker.run(skill, payload)
 
+    @traceable(name="orchestrator_generate_opening_stream", run_type="chain")
     def generate_opening_stream(
         self,
         state: ChatbotState,
@@ -180,6 +185,7 @@ class Orchestrator:
         if out is not None:
             out["response"] = response
 
+    @traceable(name="orchestrator_handle_message", run_type="chain")
     def handle_message(
         self,
         user_message: str,
@@ -277,6 +283,7 @@ class Orchestrator:
 
         return response, state, artifacts
 
+    @traceable(name="orchestrator_handle_message_stream", run_type="chain")
     def handle_message_stream(
         self,
         user_message: str,
@@ -373,6 +380,7 @@ class Orchestrator:
 
     # ── Private helpers ─────────────────────────────────────────────────
 
+    @traceable(name="orchestrator_stream_generate_plan", run_type="chain")
     def _stream_generate_plan(
         self,
         state: ChatbotState,
@@ -418,6 +426,7 @@ class Orchestrator:
             out["response"] = response
             out["artifacts"] = artifacts
 
+    @traceable(name="orchestrator_generate_plan", run_type="chain")
     def _generate_plan(
         self,
         state: ChatbotState,
@@ -458,6 +467,7 @@ class Orchestrator:
         artifacts = self._check_artifacts(state)
         return response, state, artifacts
 
+    @traceable(name="orchestrator_build_rag_context", run_type="retriever")
     def _build_rag_context(self, state: ChatbotState) -> str | None:
         """Retrieve top chunks for Phase 4 plan grounding (deterministic retrieval)."""
         if os.getenv("RAG_ENABLED", "1").lower() not in ("1", "true", "yes"):
