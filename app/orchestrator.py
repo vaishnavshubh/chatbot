@@ -210,6 +210,16 @@ class Orchestrator:
         # ── 2. Validate & merge ─────────────────────────────────────
         self._merge_extracted(state, extracted)
 
+        # Phase 0 UX default: if user consents but doesn't pick a format,
+        # treat it as "chat" so they don't get stuck at setup.
+        if (
+            state.current_phase == 0
+            and state.consent_acknowledged
+            and state.output_preference is None
+        ):
+            state.output_preference = "chat"
+            log.info("Phase 0 defaulted output_preference=chat after consent.")
+
         # Phase 2 fallback: infer time horizon from urgent/evidence-based asks
         # so users can move forward without getting stuck in topic selection.
         if (
@@ -310,6 +320,16 @@ class Orchestrator:
         log.info("Phase %d extracted: %s", state.current_phase, extracted)
 
         self._merge_extracted(state, extracted)
+
+        # Phase 0 UX default: if user consents but doesn't pick a format,
+        # treat it as "chat" so they don't get stuck at setup.
+        if (
+            state.current_phase == 0
+            and state.consent_acknowledged
+            and state.output_preference is None
+        ):
+            state.output_preference = "chat"
+            log.info("Phase 0 defaulted output_preference=chat after consent.")
 
         if (
             state.current_phase == 2
