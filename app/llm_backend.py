@@ -15,6 +15,7 @@ from __future__ import annotations
 import base64
 import logging
 import os
+from collections.abc import Iterator
 from typing import Any, Protocol
 
 from langsmith import traceable
@@ -118,6 +119,14 @@ class ChatBackend(Protocol):
         temperature: float,
     ) -> str: ...
 
+    def stream_complete(
+        self,
+        *,
+        messages: list[dict[str, Any]],
+        max_tokens: int,
+        temperature: float,
+    ) -> Iterator[str]: ...
+
 
 class OpenAIChatBackend:
     def __init__(self, client: Any):
@@ -142,6 +151,33 @@ class OpenAIChatBackend:
         )
         content = resp.choices[0].message.content
         return (content or "").strip()
+
+    def stream_complete(
+        self,
+        *,
+        messages: list[dict[str, Any]],
+        max_tokens: int,
+        temperature: float,
+    ) -> Iterator[str]:
+        model = resolve_model()
+        oa_messages = _normalize_openai_messages(
+            [_to_openai_message(m) for m in messages]
+        )
+        stream = self._client.chat.completions.create(
+            model=model,
+            messages=oa_messages,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            stream=True,
+        )
+        for event in stream:
+            try:
+                delta = event.choices[0].delta
+                piece = delta.content if delta else None
+            except (IndexError, AttributeError):
+                piece = None
+            if piece:
+                yield piece
 
 
 def _to_openai_message(m: dict[str, Any]) -> dict[str, Any]:
@@ -303,6 +339,61 @@ class GeminiChatBackend:
         except (IndexError, AttributeError, TypeError) as exc:
             log.warning("Gemini empty or unparsable response: %s", exc)
             return ""
+
+    def stream_complete(
+        self,
+        *,
+        messages: list[dict[str, Any]],
+        max_tokens: int,
+        temperature: float,
+    ) -> Iterator[str]:
+        from google.genai import types
+
+        model = resolve_model()
+        system_chunks: list[str] = []
+        contents: list[Any] = []
+
+        for m in messages:
+            role, content = m.get("role", ""), m.get("content", "")
+            if role == "system":
+                if isinstance(content, str):
+                    system_chunks.append(content)
+                continue
+            gemini_role = "model" if role == "assistant" else "user"
+            parts = _gemini_parts_from_content(content)
+            contents.append(
+                types.Content(
+                    role=gemini_role,
+                    parts=parts,
+                )
+            )
+
+        system_instruction = "\n\n".join(system_chunks) if system_chunks else None
+        cfg_kw: dict[str, Any] = {
+            "temperature": temperature,
+            "max_output_tokens": max_tokens,
+        }
+        if system_instruction:
+            cfg_kw["system_instruction"] = system_instruction
+        config = types.GenerateContentConfig(**cfg_kw)
+
+        if not contents:
+            contents = [
+                types.Content(
+                    role="user",
+                    parts=[types.Part(text="(Begin the conversation as instructed.)")],
+                )
+            ]
+
+        stream = self._client.models.generate_content_stream(
+            model=model,
+            contents=contents,
+            config=config,
+        )
+        for chunk in stream:
+            text = getattr(chunk, "text", None)
+            if text:
+                yield text
 
 
 def _gemini_parts_from_content(content: Any) -> list[Any]:

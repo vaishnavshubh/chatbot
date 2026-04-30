@@ -166,6 +166,27 @@ def _render_message(role: str, content: str) -> None:
         _render_plain_chat(content)
 
 
+def _render_message_placeholder(
+    container,
+    role: str,
+    content: str,
+) -> None:
+    """Same rules as ``_render_message``, but draw into a Streamlit container (e.g. ``st.empty()``)."""
+    if role == "assistant" and _looks_like_plan_markdown(content):
+        text = html.unescape(content)
+        text = text.replace("$", r"\$")
+        container.markdown(text)
+    else:
+        text = html.unescape(content)
+        safe = html.escape(text, quote=False)
+        safe = safe.replace("$", "&#36;")
+        container.markdown(
+            '<div style="white-space: pre-wrap; font-family: sans-serif;">'
+            f"{safe}</div>",
+            unsafe_allow_html=True,
+        )
+
+
 def _titlize_enum(value: str) -> str:
     return value.replace("_", " ").title()
 
@@ -564,12 +585,21 @@ def main():
             unsafe_allow_html=True,
         )
 
-    # Generate the opening message on first load
+    # Generate the opening message on first load (streamed); placeholder is cleared
+    # so the chat history below renders a single assistant bubble (no duplicate).
     if not st.session_state.initialized:
-        with st.spinner("Starting up..."):
-            opening = orchestrator.generate_opening(st.session_state.state)
+        out_open: dict = {}
+        ph = st.empty()
+        acc_open: list[str] = []
+        for chunk in orchestrator.generate_opening_stream(
+            st.session_state.state, out_open
+        ):
+            acc_open.append(chunk)
+            _render_message_placeholder(ph, "assistant", "".join(acc_open))
+        opening = out_open.get("response", "".join(acc_open))
         st.session_state.messages.append({"role": "assistant", "content": opening})
         st.session_state.initialized = True
+        ph.empty()
 
     uploaded_images = st.file_uploader(
         "Attach photo(s) — receipts, statements, or screenshots (optional)",
@@ -643,13 +673,22 @@ def main():
 
             # Process through the orchestrator (history includes the new user turn)
             with st.chat_message("assistant"):
-                with st.spinner("Thinking..."):
-                    response, new_state, artifacts = orchestrator.handle_message(
-                        display_text,
-                        st.session_state.state,
-                        st.session_state.messages,
+                out_msg: dict = {}
+                ph = st.empty()
+                acc_resp: list[str] = []
+                for chunk in orchestrator.handle_message_stream(
+                    display_text,
+                    st.session_state.state,
+                    st.session_state.messages,
+                    out_msg,
+                ):
+                    acc_resp.append(chunk)
+                    _render_message_placeholder(
+                        ph, "assistant", "".join(acc_resp)
                     )
-                _render_message("assistant", response)
+                response = out_msg.get("response", "".join(acc_resp))
+                # Final pass applies safety redactions (may differ slightly from raw stream).
+                _render_message_placeholder(ph, "assistant", response)
                 for j, csv_body in enumerate(_extract_csv_blocks(response)):
                     st.download_button(
                         label="Download CSV"
@@ -661,7 +700,7 @@ def main():
                         key=f"csv_new_{st.session_state.upload_nonce}_{j}",
                     )
 
-            st.session_state.state = new_state
+            # ``handle_message_stream`` mutates ``st.session_state.state`` in place.
             st.session_state.messages.append({"role": "assistant", "content": response})
             st.session_state.upload_nonce += 1
             st.rerun()
