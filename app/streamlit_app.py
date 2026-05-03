@@ -317,15 +317,78 @@ def _inject_theme_css() -> None:
         [data-testid="stChatMessage"] {{
             background: transparent !important;
         }}
-        [data-testid="stChatInput"] {{
+        /* Full-width bottom bar (Streamlit pins chat input here — defaults to white) */
+        .stApp > footer,
+        footer[data-testid="stFooter"],
+        [data-testid="stBottom"] {{
+            background: {t["bg"]} !important;
+            background-image: none !important;
+            border-top: 1px solid {t["border"]} !important;
+        }}
+        [data-testid="stBottomBlockContainer"] {{
+            background: transparent !important;
+            padding-top: 0.5rem !important;
+        }}
+        .stChatFloatingInputContainer,
+        [data-testid="stChatFloatingInputContainer"] {{
+            background: transparent !important;
+        }}
+        [data-testid="stChatInput"],
+        [data-testid="stChatInput"] > form,
+        [data-testid="stChatInput"] .stForm {{
+            background: {t["surface"]} !important;
             border-radius: 16px !important;
             border: 1px solid {t["border"]} !important;
-            background: {t["surface"]} !important;
-            box-shadow: 0 0 0 1px rgba(167,139,250,0.06), 0 8px 32px rgba(0,0,0,0.25) !important;
+            box-shadow: 0 0 0 1px rgba(167,139,250,0.08), 0 12px 40px rgba(0,0,0,0.4) !important;
         }}
-        [data-testid="stChatInput"] textarea {{
-            color: {t["text"]} !important;
+        [data-testid="stChatInput"] [data-baseweb="base-input"],
+        [data-testid="stChatInput"] [data-baseweb="textarea"] {{
+            background-color: {t["surface"]} !important;
             border: none !important;
+        }}
+        [data-testid="stChatInput"] textarea,
+        [data-testid="stChatInput"] textarea:focus {{
+            color: {t["text"]} !important;
+            background: {t["surface"]} !important;
+            border: none !important;
+            box-shadow: none !important;
+            caret-color: {t["accent"]} !important;
+        }}
+        [data-testid="stChatInput"] textarea::placeholder {{
+            color: {t["text_muted"]} !important;
+            opacity: 0.85 !important;
+        }}
+        [data-testid="stChatInput"] button {{
+            background: linear-gradient(135deg, {t["accent_dim"]} 0%, {t["violet"]} 100%) !important;
+            color: #0a0e14 !important;
+            border: none !important;
+        }}
+        [data-testid="stChatInput"] button:hover {{
+            filter: brightness(1.08) !important;
+        }}
+        [data-testid="stChatInput"] [data-baseweb="base-input"] > div {{
+            background: {t["surface"]} !important;
+        }}
+        .stFileUploader [data-testid="stFileUploader"] {{
+            color: {t["text_muted"]} !important;
+        }}
+        [data-testid="stFileUploader"] label,
+        [data-testid="stFileUploader"] small,
+        [data-testid="stFileUploader"] span {{
+            color: {t["text_muted"]} !important;
+        }}
+        [data-testid="stFileUploader"] p {{
+            color: {t["text"]} !important;
+        }}
+        .stCaption, [data-testid="stCaption"] {{
+            color: {t["text_muted"]} !important;
+        }}
+        .stMainBlockContainer.block-container {{
+            background: transparent !important;
+        }}
+        [data-testid="stMain"],
+        section.main {{
+            background: transparent !important;
         }}
         button[kind="primary"] {{
             background: linear-gradient(90deg, {t["accent_dim"]} 0%, {t["violet"]} 100%) !important;
