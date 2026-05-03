@@ -358,25 +358,85 @@ def _inject_theme_css() -> None:
         [data-testid="stBottom"] [data-testid="column"] {{
             background: transparent !important;
         }}
-        [data-testid="stChatInput"],
+        /* Wrapper Streamlit adds around the docked chat input (often default white padding) */
+        [data-testid="stBottom"] [data-testid="element-container"] {{
+            background: {t["bg"]} !important;
+            border: none !important;
+            box-shadow: none !important;
+            outline: none !important;
+        }}
+        .stChatInputContainer [data-testid="element-container"] {{
+            background: {t["bg"]} !important;
+            border: none !important;
+            box-shadow: none !important;
+        }}
+        .stChatInputContainer [data-testid="stVerticalBlock"],
+        .stChatInputContainer [data-testid="stVerticalBlock"] > div,
+        .stChatInputContainer > div > div:not([data-testid="stChatInput"]) {{
+            background: {t["bg"]} !important;
+            border: none !important;
+            box-shadow: none !important;
+        }}
+        /* Streamlit puts testid on an outer flex shell; the real panel is the first child
+           (emotion secondaryBg) — that layer was staying light and looked like a white ring. */
+        [data-testid="stChatInput"] {{
+            background: transparent !important;
+            background-color: transparent !important;
+            border: none !important;
+            border-radius: 0 !important;
+            box-shadow: none !important;
+            outline: none !important;
+            padding: 0 !important;
+        }}
+        [data-testid="stChatInput"] > div {{
+            background: {t["surface"]} !important;
+            background-color: {t["surface"]} !important;
+            border: 1px solid {t["border"]} !important;
+            border-radius: 18px !important;
+            box-shadow: 0 8px 28px rgba(0,0,0,0.45) !important;
+            outline: none !important;
+            box-sizing: border-box !important;
+        }}
+        [data-testid="stChatInput"]:focus-within > div {{
+            border-color: {t["accent"]} !important;
+        }}
         [data-testid="stChatInput"] > form,
         [data-testid="stChatInput"] .stForm {{
-            background: {t["surface"]} !important;
-            border-radius: 16px !important;
-            border: 1px solid {t["border"]} !important;
-            box-shadow: 0 0 0 1px rgba(167,139,250,0.08), 0 12px 40px rgba(0,0,0,0.4) !important;
+            background: transparent !important;
+            background-color: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+            outline: none !important;
+            margin: 0 !important;
+            padding: 0 !important;
+        }}
+        [data-testid="stChatInput"] fieldset,
+        [data-testid="stChatInput"] fieldset > div {{
+            border: none !important;
+            background: transparent !important;
+            box-shadow: none !important;
         }}
         [data-testid="stChatInput"] [data-baseweb="base-input"],
-        [data-testid="stChatInput"] [data-baseweb="textarea"] {{
-            background-color: {t["surface"]} !important;
+        [data-testid="stChatInput"] [data-baseweb="textarea"],
+        [data-testid="stChatInput"] [data-baseweb="input"] {{
+            background-color: transparent !important;
+            background: transparent !important;
+            border: none !important;
+            outline: none !important;
+            box-shadow: none !important;
+        }}
+        [data-testid="stChatInput"] [data-baseweb="base-input"] > div {{
+            background: transparent !important;
+            box-shadow: none !important;
             border: none !important;
         }}
         [data-testid="stChatInput"] textarea,
         [data-testid="stChatInput"] textarea:focus {{
             color: {t["text"]} !important;
-            background: {t["surface"]} !important;
+            background: transparent !important;
             border: none !important;
             box-shadow: none !important;
+            outline: none !important;
             caret-color: {t["accent"]} !important;
         }}
         [data-testid="stChatInput"] textarea::placeholder {{
@@ -387,12 +447,10 @@ def _inject_theme_css() -> None:
             background: linear-gradient(135deg, {t["accent_dim"]} 0%, {t["violet"]} 100%) !important;
             color: #0a0e14 !important;
             border: none !important;
+            box-shadow: none !important;
         }}
         [data-testid="stChatInput"] button:hover {{
             filter: brightness(1.08) !important;
-        }}
-        [data-testid="stChatInput"] [data-baseweb="base-input"] > div {{
-            background: {t["surface"]} !important;
         }}
         .stFileUploader [data-testid="stFileUploader"] {{
             color: {t["text_muted"]} !important;
