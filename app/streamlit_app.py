@@ -23,15 +23,26 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 MD_DIR = PROJECT_ROOT / "md"
 ENV_PATH = PROJECT_ROOT / ".env"
 ASSETS_DIR = PROJECT_ROOT / "assets"
+LOGO_FUTURISTIC = ASSETS_DIR / "finlit_logo_futuristic.png"
 LOGO_PNG = ASSETS_DIR / "finlit_logo.png"
 LOGO_SVG = ASSETS_DIR / "finlit_logo.svg"
 
-# FinLit brand greens (aligned with logo)
+# Futuristic dark UI (ChatGPT / Gemini / Claude–inspired palette)
 THEME = {
-    "primary": "#1B5E20",
-    "primary_mid": "#2E7D32",
-    "accent": "#43A047",
-    "light": "#E8F5E9",
+    "bg_deep": "#030508",
+    "bg": "#0a0e14",
+    "surface": "#0f141d",
+    "surface_elevated": "#151b2a",
+    "border": "rgba(99, 179, 237, 0.14)",
+    "text": "#e8eef9",
+    "text_muted": "#8a9bb8",
+    "accent": "#22d3ee",
+    "accent_dim": "#06b6d4",
+    "violet": "#a78bfa",
+    # Aliases for phase / sidebar accents
+    "primary": "#a78bfa",
+    "primary_mid": "#22d3ee",
+    "light": "#0c1018",
 }
 
 from dotenv import load_dotenv
@@ -136,9 +147,9 @@ def _render_plan_markdown(content: str) -> None:
     st.markdown(text)
 
 
-def _render_plain_chat(text: str) -> None:
+def _render_plain_chat(text: str, *, role: str) -> None:
     """
-    Show assistant/user chat as readable plain text.
+    Show assistant/user chat as readable plain text in a futuristic bubble.
 
     - Models sometimes emit HTML entities (e.g. &#x27;). html.escape() would turn
       the '&' into &amp; and break them unless we unescape first.
@@ -148,9 +159,9 @@ def _render_plain_chat(text: str) -> None:
     text = html.unescape(text)
     safe = html.escape(text, quote=False)
     safe = safe.replace("$", "&#36;")
+    bubble = "finlit-bubble finlit-bubble-user" if role == "user" else "finlit-bubble finlit-bubble-assistant"
     st.markdown(
-        '<div style="white-space: pre-wrap; font-family: sans-serif;">'
-        f"{safe}</div>",
+        f'<div class="{bubble}"><div class="finlit-bubble-inner">{safe}</div></div>',
         unsafe_allow_html=True,
     )
 
@@ -163,7 +174,7 @@ def _render_message(role: str, content: str) -> None:
     if role == "assistant" and _looks_like_plan_markdown(content):
         _render_plan_markdown(content)
     else:
-        _render_plain_chat(content)
+        _render_plain_chat(content, role=role)
 
 
 def _render_message_placeholder(
@@ -180,9 +191,9 @@ def _render_message_placeholder(
         text = html.unescape(content)
         safe = html.escape(text, quote=False)
         safe = safe.replace("$", "&#36;")
+        bubble = "finlit-bubble finlit-bubble-user" if role == "user" else "finlit-bubble finlit-bubble-assistant"
         container.markdown(
-            '<div style="white-space: pre-wrap; font-family: sans-serif;">'
-            f"{safe}</div>",
+            f'<div class="{bubble}"><div class="finlit-bubble-inner">{safe}</div></div>',
             unsafe_allow_html=True,
         )
 
@@ -200,8 +211,12 @@ def _format_money(value: float | None) -> str | None:
 
 
 def _logo_html(max_width_px: int = 240) -> str | None:
-    """Return <img> data-URI for bundled logo (PNG preferred, else SVG)."""
-    path = LOGO_PNG if LOGO_PNG.exists() else LOGO_SVG if LOGO_SVG.exists() else None
+    """Return <img> data-URI (futuristic logo preferred, then legacy PNG/SVG)."""
+    path = None
+    for candidate in (LOGO_FUTURISTIC, LOGO_PNG, LOGO_SVG):
+        if candidate.exists():
+            path = candidate
+            break
     if path is None:
         return None
     raw = path.read_bytes()
@@ -209,45 +224,142 @@ def _logo_html(max_width_px: int = 240) -> str | None:
     b64 = base64.standard_b64encode(raw).decode("ascii")
     return (
         f'<img src="data:{mime};base64,{b64}" '
-        f'style="max-width:{max_width_px}px;width:100%;height:auto;display:block;" '
-        'alt="FinLit logo" />'
+        f'style="max-width:{max_width_px}px;width:100%;height:auto;display:block;border-radius:14px;" '
+        'alt="FinLit AI logo" />'
     )
 
 
 def _inject_theme_css() -> None:
-    p, pm, ac, lg = (
-        THEME["primary"],
-        THEME["primary_mid"],
-        THEME["accent"],
-        THEME["light"],
-    )
+    t = THEME
     st.markdown(
         f"""
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
         <style>
-        .finlit-main-title {{
-            color: {p};
-            font-weight: 700;
-            font-size: 1.75rem;
-            margin: 0;
-            line-height: 1.2;
+        html, body, [data-testid="stAppViewContainer"], .stApp {{
+            background: radial-gradient(120% 80% at 50% -20%, rgba(34,211,238,0.08) 0%, transparent 50%),
+                linear-gradient(180deg, {t["bg_deep"]} 0%, {t["bg"]} 40%, {t["bg"]} 100%) !important;
+            color: {t["text"]} !important;
+            font-family: "Inter", system-ui, -apple-system, sans-serif !important;
         }}
-        .finlit-subtitle {{
-            color: {pm};
-            font-size: 0.95rem;
-            margin-top: 0.25rem;
+        [data-testid="stHeader"] {{
+            background: transparent !important;
+            border-bottom: 1px solid {t["border"]};
+        }}
+        [data-testid="stToolbar"] {{
+            background: transparent !important;
         }}
         [data-testid="stSidebar"] {{
-            background: linear-gradient(180deg, {lg} 0%, #ffffff 55%) !important;
+            background: linear-gradient(175deg, {t["surface"]} 0%, {t["bg_deep"]} 100%) !important;
+            border-right: 1px solid {t["border"]} !important;
         }}
-        [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p {{
-            color: #1b1b1b;
+        [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p,
+        [data-testid="stSidebar"] .stMarkdown {{
+            color: {t["text_muted"]} !important;
         }}
-        button[kind="primary"] {{
-            background-color: {pm} !important;
-            border-color: {pm} !important;
+        [data-testid="stSidebar"] h3 {{
+            color: {t["text"]} !important;
+            font-weight: 600 !important;
+            letter-spacing: 0.02em;
+        }}
+        .main .block-container {{
+            padding-top: 1.25rem !important;
+            max-width: 52rem !important;
+        }}
+        .finlit-main-title {{
+            font-weight: 700;
+            font-size: 1.65rem;
+            margin: 0;
+            line-height: 1.2;
+            background: linear-gradient(105deg, {t["text"]} 0%, {t["accent"]} 45%, {t["violet"]} 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }}
+        .finlit-subtitle {{
+            color: {t["text_muted"]};
+            font-size: 0.92rem;
+            margin-top: 0.35rem;
+            font-weight: 400;
+        }}
+        .finlit-bubble {{
+            border-radius: 18px;
+            padding: 0.85rem 1.1rem;
+            margin: 0.35rem 0 0.75rem 0;
+            border: 1px solid {t["border"]};
+            box-shadow: 0 4px 24px rgba(0,0,0,0.35);
+        }}
+        .finlit-bubble-assistant {{
+            background: linear-gradient(145deg, {t["surface_elevated"]} 0%, {t["surface"]} 100%);
+            margin-right: 2rem;
+        }}
+        .finlit-bubble-user {{
+            background: linear-gradient(145deg, rgba(34,211,238,0.12) 0%, {t["surface_elevated"]} 100%);
+            margin-left: 2rem;
+            border-color: rgba(34,211,238,0.25);
+        }}
+        .finlit-bubble-inner {{
+            white-space: pre-wrap;
+            color: {t["text"]};
+            font-size: 0.95rem;
+            line-height: 1.55;
+        }}
+        [data-testid="stChatMessage"] [data-testid="stMarkdownContainer"] h1,
+        [data-testid="stChatMessage"] [data-testid="stMarkdownContainer"] h2,
+        [data-testid="stChatMessage"] [data-testid="stMarkdownContainer"] h3 {{
+            color: {t["accent"]} !important;
+        }}
+        [data-testid="stChatMessage"] [data-testid="stMarkdownContainer"] p,
+        [data-testid="stChatMessage"] [data-testid="stMarkdownContainer"] li {{
+            color: {t["text"]} !important;
+        }}
+        [data-testid="stChatMessage"] {{
+            background: transparent !important;
+        }}
+        [data-testid="stChatInput"] {{
+            border-radius: 16px !important;
+            border: 1px solid {t["border"]} !important;
+            background: {t["surface"]} !important;
+            box-shadow: 0 0 0 1px rgba(167,139,250,0.06), 0 8px 32px rgba(0,0,0,0.25) !important;
         }}
         [data-testid="stChatInput"] textarea {{
-            border-color: {ac} !important;
+            color: {t["text"]} !important;
+            border: none !important;
+        }}
+        button[kind="primary"] {{
+            background: linear-gradient(90deg, {t["accent_dim"]} 0%, {t["violet"]} 100%) !important;
+            border: none !important;
+            border-radius: 10px !important;
+            font-weight: 600 !important;
+        }}
+        button[kind="secondary"] {{
+            background: {t["surface_elevated"]} !important;
+            color: {t["text"]} !important;
+            border: 1px solid {t["border"]} !important;
+            border-radius: 10px !important;
+        }}
+        [data-testid="stBaseButton-secondary"] {{
+            color: {t["text"]} !important;
+        }}
+        .stDownloadButton button {{
+            background: {t["surface_elevated"]} !important;
+            color: {t["accent"]} !important;
+            border: 1px solid rgba(34,211,238,0.35) !important;
+            border-radius: 10px !important;
+        }}
+        [data-testid="stFileUploader"] section {{
+            background: {t["surface"]} !important;
+            border: 1px dashed {t["border"]} !important;
+            border-radius: 14px !important;
+        }}
+        [data-testid="stAlert"] {{
+            background: {t["surface_elevated"]} !important;
+            border: 1px solid {t["border"]} !important;
+            color: {t["text"]} !important;
+        }}
+        div[data-baseweb="notification"] {{
+            color: {t["text"]} !important;
         }}
         </style>
         """,
@@ -334,9 +446,9 @@ def _collected_info_rows(state: ChatbotState) -> list[tuple[str, str]]:
 
 # ── Page config ─────────────────────────────────────────────────────────
 st.set_page_config(
-    page_title="FinLit Guide",
-    page_icon="\U0001f331",
-    layout="centered",
+    page_title="FinLit AI",
+    page_icon="\U0001f4c8",
+    layout="wide",
     initial_sidebar_state="expanded",
 )
 
@@ -494,11 +606,11 @@ def _render_sidebar():
             unsafe_allow_html=True,
         )
         # Avoid repeating the tagline when the PNG already includes it in the artwork.
-        if not LOGO_PNG.exists():
+        if not (LOGO_FUTURISTIC.exists() or LOGO_PNG.exists()):
             sb.markdown(
-                f'<p style="color:{THEME["primary_mid"]};font-size:0.72rem;text-align:center;'
-                'letter-spacing:0.06em;margin:0 0 0.75rem 0;">'
-                "EMPOWERING FINANCIAL FUTURES</p>",
+                f'<p style="color:{THEME["accent"]};font-size:0.68rem;text-align:center;'
+                'letter-spacing:0.12em;margin:0 0 0.75rem 0;text-transform:uppercase;">'
+                "AI · Financial futures</p>",
                 unsafe_allow_html=True,
             )
     else:
@@ -521,10 +633,10 @@ def _render_sidebar():
             style = f"color:{THEME['primary_mid']};"
         elif pid == state.current_phase:
             mark = "\u25b6"
-            style = f"color:{THEME['primary']};font-weight:600;"
+            style = f"color:{THEME['accent']};font-weight:600;text-shadow:0 0 12px rgba(34,211,238,0.35);"
         else:
             mark = "\u25cb"
-            style = "color:#9E9E9E;"
+            style = f"color:{THEME['text_muted']};"
         sb.markdown(f'<p style="margin:0.2rem 0;{style}">{mark} {label}</p>', unsafe_allow_html=True)
 
     sb.divider()
@@ -580,8 +692,8 @@ def main():
             )
     with c2:
         st.markdown(
-            '<p class="finlit-main-title">Financial literacy guide</p>'
-            '<p class="finlit-subtitle">Personalized education — not financial advice.</p>',
+            '<p class="finlit-main-title">FinLit AI</p>'
+            '<p class="finlit-subtitle">Your financial literacy copilot — educational only, not advice.</p>',
             unsafe_allow_html=True,
         )
 
