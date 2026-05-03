@@ -237,6 +237,9 @@ def _inject_theme_css() -> None:
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
         <style>
+        html {{
+            color-scheme: dark;
+        }}
         html, body, [data-testid="stAppViewContainer"], .stApp {{
             background: radial-gradient(120% 80% at 50% -20%, rgba(34,211,238,0.08) 0%, transparent 50%),
                 linear-gradient(180deg, {t["bg_deep"]} 0%, {t["bg"]} 40%, {t["bg"]} 100%) !important;
@@ -317,20 +320,42 @@ def _inject_theme_css() -> None:
         [data-testid="stChatMessage"] {{
             background: transparent !important;
         }}
-        /* Full-width bottom bar (Streamlit pins chat input here — defaults to white) */
+        /* Bottom dock: Streamlit uses nested divs + .stChatInputContainer; inner tray defaults to white */
         .stApp > footer,
         footer[data-testid="stFooter"],
-        [data-testid="stBottom"] {{
+        [data-testid="stBottom"],
+        [data-testid="stBottom"] > div,
+        [data-testid="stBottom"] > div > div {{
             background: {t["bg"]} !important;
+            background-color: {t["bg"]} !important;
             background-image: none !important;
+        }}
+        [data-testid="stBottom"] {{
             border-top: 1px solid {t["border"]} !important;
+            box-shadow: none !important;
         }}
         [data-testid="stBottomBlockContainer"] {{
-            background: transparent !important;
+            background: {t["bg"]} !important;
+            background-color: {t["bg"]} !important;
             padding-top: 0.5rem !important;
         }}
         .stChatFloatingInputContainer,
         [data-testid="stChatFloatingInputContainer"] {{
+            background: {t["bg"]} !important;
+            background-color: {t["bg"]} !important;
+        }}
+        .stChatInputContainer,
+        .stChatInputContainer > div {{
+            background: {t["bg"]} !important;
+            background-color: {t["bg"]} !important;
+            background-image: none !important;
+            box-shadow: none !important;
+        }}
+        [data-testid="stBottom"] [data-testid="stVerticalBlockBorderWrapper"] {{
+            background: {t["bg"]} !important;
+            border: none !important;
+        }}
+        [data-testid="stBottom"] [data-testid="column"] {{
             background: transparent !important;
         }}
         [data-testid="stChatInput"],
